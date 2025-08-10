@@ -1,35 +1,23 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Tabs, Tab } from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+import OneStrokePuzzle from './OneStroke/OneStroke';
+import Game2048 from './Game2048/Game2048';
+import { useState } from 'react';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState("game2048");
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="container mt-4">
+      <Tabs id="uncontrolled-tab-example" className="mb-3" activeKey={activeTab} onSelect={(k) => setActiveTab(k || "")}>
+        <Tab eventKey="game2048" title="2048">
+          <Game2048 isActive={activeTab === "game2048"} />
+        </Tab>
+        <Tab eventKey="oneStroke" title="一筆書き">
+          <OneStrokePuzzle />
+        </Tab>
+      </Tabs>
+    </div>
   )
 }
-
-export default App
