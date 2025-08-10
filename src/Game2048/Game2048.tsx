@@ -250,24 +250,33 @@ export default function Game2048(props: { isActive: boolean }) {
     }
   }
 
+  function move(direction: "up" | "down" | "left" | "right") {
+    let newBoard: number[][] | undefined;
+    if (direction === "up") {
+      newBoard = moveUp(board);
+    } else if (direction === "down") {
+      newBoard = moveDown(board);
+    } else if (direction === "left") {
+      newBoard = moveLeft(board);
+    } else if (direction === "right") {
+      newBoard = moveRight(board);
+    }
+    if (newBoard) {
+      if (JSON.stringify(newBoard) === JSON.stringify(board)) return;
+      addTile(newBoard);
+      setBoard(newBoard);
+    }
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key;
-      let newBoard: number[][] | undefined;
-      if (key === "ArrowUp") {
-        newBoard = moveUp(board);
-      } else if (key === "ArrowDown") {
-        newBoard = moveDown(board);
-      } else if (key === "ArrowLeft") {
-        newBoard = moveLeft(board);
-      } else if (key === "ArrowRight") {
-        newBoard = moveRight(board);
-      }
-      if (newBoard) {
-        if (JSON.stringify(newBoard) === JSON.stringify(board)) return;
-        addTile(newBoard);
-        setBoard(newBoard);
-      }
+      const directions = {
+        ArrowUp: "up" as const,
+        ArrowDown: "down" as const,
+        ArrowLeft: "left" as const,
+        ArrowRight: "right" as const,
+      };
+      move(directions[e.key as keyof typeof directions]);
     };
 
     if (isActive) {
@@ -278,11 +287,39 @@ export default function Game2048(props: { isActive: boolean }) {
     };
   }, [isActive, board, selectedDifficulty]);
 
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchEndX = 0;
+  let touchEndY = 0;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    touchEndX = e.changedTouches[0].clientX;
+    touchEndY = e.changedTouches[0].clientY;
+
+    const dx = touchEndX - touchStartX;
+    const dy = touchEndY - touchStartY;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // 左右
+      if (dx > 30) move("right");
+      else if (dx < -30) move("left");
+    } else {
+      // 上下
+      if (dy > 30) move("down");
+      else if (dy < -30) move("up");
+    }
+  };
+
   return (
     <div className="container">
       <div className="row">
         <div className="col-12">
-          <table>
+          <table onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             {board.map((row) => (
               <tr>
                 {row.map((value) => (
