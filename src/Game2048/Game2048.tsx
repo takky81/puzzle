@@ -297,6 +297,11 @@ export default function Game2048(props: { isActive: boolean }) {
     touchStartY = e.touches[0].clientY;
   };
 
+  
+const handleTouchMove = (e: React.TouchEvent) => {
+  e.preventDefault();
+};
+
   const handleTouchEnd = (e: React.TouchEvent) => {
     touchEndX = e.changedTouches[0].clientX;
     touchEndY = e.changedTouches[0].clientY;
@@ -306,12 +311,10 @@ export default function Game2048(props: { isActive: boolean }) {
 
     if (Math.abs(dx) > Math.abs(dy)) {
       // 左右
-      e.preventDefault(); // フリックのときだけデフォルト動作防止
       if (dx > 30) move("right");
       else if (dx < -30) move("left");
     } else {
       // 上下
-      e.preventDefault(); // フリックのときだけデフォルト動作防止
       if (dy > 30) move("down");
       else if (dy < -30) move("up");
     }
@@ -321,7 +324,7 @@ export default function Game2048(props: { isActive: boolean }) {
     <div className="container">
       <div className="row">
         <div className="col-12">
-          <table onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <table onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             {board.map((row) => (
               <tr>
                 {row.map((value) => (
