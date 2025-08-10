@@ -295,6 +295,7 @@ export default function Game2048(props: { isActive: boolean }) {
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
+    e.preventDefault(); // タッチイベントのデフォルト動作を防ぐ
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -313,6 +314,8 @@ export default function Game2048(props: { isActive: boolean }) {
       if (dy > 30) move("down");
       else if (dy < -30) move("up");
     }
+
+    e.preventDefault(); // タッチイベントのデフォルト動作を防ぐ
   };
 
   return (
