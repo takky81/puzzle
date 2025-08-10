@@ -296,6 +296,7 @@ export default function Game2048(props: { isActive: boolean }) {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     e.preventDefault(); // タッチイベントのデフォルト動作を防ぐ
+    e.stopPropagation(); // イベントのバブリングを防ぐ
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -316,6 +317,7 @@ export default function Game2048(props: { isActive: boolean }) {
     }
 
     e.preventDefault(); // タッチイベントのデフォルト動作を防ぐ
+    e.stopPropagation(); // イベントのバブリングを防ぐ
   };
 
   return (
