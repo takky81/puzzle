@@ -295,8 +295,6 @@ export default function Game2048(props: { isActive: boolean }) {
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
-    e.preventDefault(); // タッチイベントのデフォルト動作を防ぐ
-    e.stopPropagation(); // イベントのバブリングを防ぐ
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -308,16 +306,15 @@ export default function Game2048(props: { isActive: boolean }) {
 
     if (Math.abs(dx) > Math.abs(dy)) {
       // 左右
+      e.preventDefault(); // フリックのときだけデフォルト動作防止
       if (dx > 30) move("right");
       else if (dx < -30) move("left");
     } else {
       // 上下
+      e.preventDefault(); // フリックのときだけデフォルト動作防止
       if (dy > 30) move("down");
       else if (dy < -30) move("up");
     }
-
-    e.preventDefault(); // タッチイベントのデフォルト動作を防ぐ
-    e.stopPropagation(); // イベントのバブリングを防ぐ
   };
 
   return (
