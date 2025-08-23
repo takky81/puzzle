@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 
 import './Game2048.css';
 
+interface Game2048SaveData {
+  highScore: number;
+}
+
+const SAVE_DATA_KEY = "game2048" as const;
+
 const BOARD_SIZE = 4 as const;
 
 type Difficulty = "Easy" | "Random" | "Hard";
@@ -137,6 +143,7 @@ function getLineSums(board: number[][], spacePoints: BoardPoint[]) {
 }
 
 function moveLeft(currentBoard: number[][]) {
+  let added_score = 0;
   const newBoard = createEmptyBoard();
   for (let i = 0; i < BOARD_SIZE; i++) {
     let targetIndex = 0;
@@ -148,6 +155,7 @@ function moveLeft(currentBoard: number[][]) {
         newBoard[i][targetIndex] = currentValue;
       } else if (currentValue === newBoard[i][targetIndex]) {
         newBoard[i][targetIndex] *= 2;
+        added_score += currentValue * 2;
         targetIndex++;
       } else {
         targetIndex++;
@@ -155,10 +163,11 @@ function moveLeft(currentBoard: number[][]) {
       }
     }
   }
-  return newBoard;
+  return { newBoard, added_score };
 }
 
 function moveRight(currentBoard: number[][]) {
+  let added_score = 0;
   const newBoard = createEmptyBoard();
   for (let i = 0; i < BOARD_SIZE; i++) {
     let targetIndex = BOARD_SIZE - 1;
@@ -170,6 +179,7 @@ function moveRight(currentBoard: number[][]) {
         newBoard[i][targetIndex] = currentValue;
       } else if (currentValue === newBoard[i][targetIndex]) {
         newBoard[i][targetIndex] *= 2;
+        added_score += currentValue * 2;
         targetIndex--;
       } else {
         targetIndex--;
@@ -177,10 +187,11 @@ function moveRight(currentBoard: number[][]) {
       }
     }
   }
-  return newBoard;
+  return { newBoard, added_score };
 }
 
 function moveUp(currentBoard: number[][]) {
+  let added_score = 0;
   const newBoard = createEmptyBoard();
   for (let j = 0; j < BOARD_SIZE; j++) {
     let targetIndex = 0;
@@ -192,6 +203,7 @@ function moveUp(currentBoard: number[][]) {
         newBoard[targetIndex][j] = currentValue;
       } else if (currentValue === newBoard[targetIndex][j]) {
         newBoard[targetIndex][j] *= 2;
+        added_score += currentValue * 2;
         targetIndex++;
       } else {
         targetIndex++;
@@ -199,10 +211,11 @@ function moveUp(currentBoard: number[][]) {
       }
     }
   }
-  return newBoard;
+  return { newBoard, added_score };
 }
 
 function moveDown(currentBoard: number[][]) {
+  let added_score = 0;
   const newBoard = createEmptyBoard();
   for (let j = 0; j < BOARD_SIZE; j++) {
     let targetIndex = BOARD_SIZE - 1;
@@ -214,6 +227,7 @@ function moveDown(currentBoard: number[][]) {
         newBoard[targetIndex][j] = currentValue;
       } else if (currentValue === newBoard[targetIndex][j]) {
         newBoard[targetIndex][j] *= 2;
+        added_score += currentValue * 2;
         targetIndex--;
       } else {
         targetIndex--;
@@ -221,14 +235,32 @@ function moveDown(currentBoard: number[][]) {
       }
     }
   }
-  return newBoard;
+  return { newBoard, added_score };
 }
 
 export default function Game2048(props: { isActive: boolean }) {
   const { isActive } = props;
 
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [isGameOverShown, setIsGameOverShown] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(defaultDifficulty);
-  const [board, setBoard] = useState(createInitialBoard());
+  const [board, setBoard] = useState(createInitialBoard);
+  const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
+
+  if (isGameOverShown) {
+    let message = `Game Over!`;
+    if (highScore < score) {
+      setHighScore(score);
+      const saveData: Game2048SaveData = {
+        highScore: score,
+      };
+      localStorage.setItem(SAVE_DATA_KEY, JSON.stringify(saveData));
+      message += `\nハイスコアを更新しました！: ${highScore} → ${score}`;
+    }
+    setIsGameOverShown(false);
+    alert(message);
+  }
 
   function createInitialBoard() {
     const board = createEmptyBoard();
@@ -248,23 +280,37 @@ export default function Game2048(props: { isActive: boolean }) {
         addTileHard(board);
         break;
     }
+
+    const serializedBoard = JSON.stringify(board);
+    const newIsGameOver = JSON.stringify(moveUp(board).newBoard) === serializedBoard
+      && JSON.stringify(moveDown(board).newBoard) === serializedBoard
+      && JSON.stringify(moveLeft(board).newBoard) === serializedBoard
+      && JSON.stringify(moveRight(board).newBoard) === serializedBoard;
+    if (newIsGameOver) {
+      setIsGameOver(true);
+      setIsGameOverShown(true);
+    }
   }
 
   function move(direction: "up" | "down" | "left" | "right") {
+    let added_score: number | undefined;
     let newBoard: number[][] | undefined;
     if (direction === "up") {
-      newBoard = moveUp(board);
+      ({ newBoard, added_score } = moveUp(board));
     } else if (direction === "down") {
-      newBoard = moveDown(board);
+      ({ newBoard, added_score } = moveDown(board));
     } else if (direction === "left") {
-      newBoard = moveLeft(board);
+      ({ newBoard, added_score } = moveLeft(board));
     } else if (direction === "right") {
-      newBoard = moveRight(board);
+      ({ newBoard, added_score } = moveRight(board));
     }
     if (newBoard) {
       if (JSON.stringify(newBoard) === JSON.stringify(board)) return;
       addTile(newBoard);
       setBoard(newBoard);
+    }
+    if (added_score) {
+      setScore(score + added_score);
     }
   }
 
@@ -287,6 +333,14 @@ export default function Game2048(props: { isActive: boolean }) {
     };
   }, [isActive, board, selectedDifficulty]);
 
+  useEffect(() => {
+    const savedData = localStorage.getItem(SAVE_DATA_KEY);
+    if (savedData) {
+      const parsedData: Game2048SaveData = JSON.parse(savedData);
+      setHighScore(parsedData.highScore);
+    }
+  }, [])
+
   let touchStartX = 0;
   let touchStartY = 0;
   let touchEndX = 0;
@@ -296,7 +350,6 @@ export default function Game2048(props: { isActive: boolean }) {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
   };
-
 
   const handleTouchMove = (e: React.TouchEvent) => {
     e.preventDefault();
@@ -323,6 +376,11 @@ export default function Game2048(props: { isActive: boolean }) {
   return (
     <div className="container">
       <div className="row">
+        <div className="col-12">
+          <span>score: {score}</span>
+          <span className="ms-2">high score: {highScore}</span>
+          {isGameOver && <span className="ms-2 text-danger">Game Over</span>}
+        </div>
         <div className="col-12">
           <table onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} style={{ touchAction: "none" }}>
             {board.map((row) => (
