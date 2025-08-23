@@ -297,10 +297,10 @@ export default function Game2048(props: { isActive: boolean }) {
     touchStartY = e.touches[0].clientY;
   };
 
-  
-const handleTouchMove = (e: React.TouchEvent) => {
-  e.preventDefault();
-};
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+  };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     touchEndX = e.changedTouches[0].clientX;
@@ -324,7 +324,7 @@ const handleTouchMove = (e: React.TouchEvent) => {
     <div className="container">
       <div className="row">
         <div className="col-12">
-          <table onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          <table onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} style={{ touchAction: "none" }}>
             {board.map((row) => (
               <tr>
                 {row.map((value) => (
