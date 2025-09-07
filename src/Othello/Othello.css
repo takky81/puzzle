@@ -1,0 +1,25 @@
+#board-othello {
+  background-color: green;
+  max-width: 100%;
+  max-height: min(100vh, 700px);
+  aspect-ratio: 1 / 1;
+}
+
+.cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+}
+
+.cell-state-1 {
+  background-color: black;
+  border-radius: 50%;
+}
+
+.cell-state-2 {
+  background-color: white;
+  border-radius: 50%;
+}
+
+.candidate {
+  opacity: 0.3;
+}
