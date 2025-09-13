@@ -67,7 +67,9 @@ export default function Othello(props: { setLockString: (lockString: string | un
 
   useEffect(() => {
     const runAi = async () => {
-      if (aiUsage[currentPlayer] && !isGameOver) {
+      if (isGameOver) return;
+
+      if (aiUsage[currentPlayer]) {
         setLockString("AIが思考中...");
 
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -77,6 +79,8 @@ export default function Othello(props: { setLockString: (lockString: string | un
         handleCellClick(coord.y, coord.x, candidates.some(c => c.y === coord.y && c.x === coord.x));
 
         setLockString(undefined);
+      } else {
+        setAiThinkingResult(prev => ({ ...prev, [currentPlayer]: { winCount: 0, gameCount: 0 } }));
       }
     }
     runAi();
@@ -164,15 +168,21 @@ export default function Othello(props: { setLockString: (lockString: string | un
           </div>
         </div>
         <div className="col-12">
-          <span className="me-2">AIの試行結果:</span>
-          {[CellState.Black, CellState.White].map(color => {
-            const result = aiThinkingResult[color as StoneColor];
-            const colorName = color === CellState.Black ? "黒" : "白";
-            const winRate = result.gameCount === 0 ? "-" : (100 * result.winCount / result.gameCount).toFixed(2);
-            return (
-              <span className="me-2">{colorName} {result.winCount} / {result.gameCount} = {winRate} %</span>
-            );
-          })}
+          <div className="row">
+            <div className="col-auto">AIの試行結果:</div>
+            <div className="col-auto">
+              <div className="row">
+                {[CellState.Black, CellState.White].map(color => {
+                  const result = aiThinkingResult[color as StoneColor];
+                  const colorName = color === CellState.Black ? "黒" : "白";
+                  const winRate = result.gameCount === 0 ? "-" : (100 * result.winCount / result.gameCount).toFixed(2);
+                  return (
+                    <div className="col-auto">{colorName} {result.winCount} / {result.gameCount} = {winRate} %</div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -310,7 +320,7 @@ function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[]): { 
   }
 
   const maxWinCount = Math.max(...winCounts);
-  const aiThinkingResult: AiThinkingResult = { winCount: maxWinCount, gameCount };
+  const aiThinkingResult = { winCount: maxWinCount, gameCount };
   const coord = candidates[winCounts.indexOf(maxWinCount)];
 
   return { coord, aiThinkingResult };
