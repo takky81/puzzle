@@ -262,7 +262,7 @@ function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[]): { 
   let gameCount = 0;
 
   const startTime = performance.now();
-  const thinkingTime = 10000; // ミリ秒
+  const thinkingTime = 3000; // ミリ秒
 
   while (performance.now() - startTime < thinkingTime) {
     gameCount++;
