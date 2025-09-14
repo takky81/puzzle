@@ -218,7 +218,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
           <div className="row">
             <div className="col-auto">
               <div className="row align-items-center">
-                <div className="col-auto">
+                <div className="col-auto pe-0">
                   <label className="form-label mb-0" htmlFor="maxAiThinkingTime">最大AI思考時間[秒]：</label>
                 </div>
                 <div className="col-auto">
@@ -229,7 +229,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
             </div>
             <div className="col-auto">
               <div className="row align-items-center">
-                <div className="col-auto">
+                <div className="col-auto pe-0">
                   <label className="form-label mb-0" htmlFor="maxAiThinkingCount">最大AI思考回数：</label>
                 </div>
                 <div className="col-auto">
@@ -240,7 +240,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
             </div>
             <div className="col-auto">
               <div className="row align-items-center">
-                <div className="col-auto">
+                <div className="col-auto pe-0">
                   <label className="form-label mb-0" htmlFor="aiLevel">AIの強さ：</label>
                 </div>
                 <div className="col-auto">
