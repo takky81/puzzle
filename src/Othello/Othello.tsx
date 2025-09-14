@@ -4,6 +4,9 @@ import './Othello.css';
 
 const BOARD_SIZE = 8 as const;
 
+const DEFAULT_MAX_AI_THINKING_TIME = 3; // 秒
+const DEFAULT_MAX_AI_THINKING_COUNT = 10000;
+
 const enum CellState {
   Empty = 0,
   Black = 1,
@@ -37,10 +40,11 @@ function createEmptyBoard(): Board {
 
 function createInitialBoard() {
   const board = createEmptyBoard();
-  board[3][3] = CellState.White;
-  board[3][4] = CellState.Black;
-  board[4][3] = CellState.Black;
-  board[4][4] = CellState.White;
+  const mid = BOARD_SIZE / 2;
+  board[mid - 1][mid - 1] = CellState.White;
+  board[mid - 1][mid] = CellState.Black;
+  board[mid][mid - 1] = CellState.Black;
+  board[mid][mid] = CellState.White;
   return board;
 }
 
@@ -60,6 +64,8 @@ export default function Othello(props: { setLockString: (lockString: string | un
     [CellState.Black]: { winCount: 0, gameCount: 0 },
     [CellState.White]: { winCount: 0, gameCount: 0 },
   });
+  const [maxAiThinkingTime, setMaxAiThinkingTime] = useState(DEFAULT_MAX_AI_THINKING_TIME * 1000);
+  const [maxAiThinkingCount, setMaxAiThinkingCount] = useState(DEFAULT_MAX_AI_THINKING_COUNT);
 
   useEffect(() => {
     resetGame();
@@ -74,7 +80,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
 
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        const { coord, aiThinkingResult } = aiAction(board, currentPlayer, candidates);
+        const { coord, aiThinkingResult } = aiAction(board, currentPlayer, candidates, maxAiThinkingTime, maxAiThinkingCount);
         setAiThinkingResult(prev => ({ ...prev, [currentPlayer]: aiThinkingResult }));
         handleCellClick(coord.y, coord.x, candidates.some(c => c.y === coord.y && c.x === coord.x));
 
@@ -84,7 +90,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
       }
     }
     runAi();
-  }, [currentPlayer, aiUsage, isGameOver]);
+  }, [currentPlayer, board, aiUsage, isGameOver]);
 
   function resetGame() {
     const initialBoard = createInitialBoard();
@@ -126,13 +132,38 @@ export default function Othello(props: { setLockString: (lockString: string | un
     setAiUsage(prev => ({ ...prev, [color]: isAiUsed }));
   }
 
+  function handleBlurMaxAiThinkingTime(event: React.FocusEvent<HTMLInputElement, Element>) {
+    const timeString = event.target.value;
+    const time = Number(timeString);
+    if (Number.isInteger(time) && 0 < time) {
+      setMaxAiThinkingTime(time * 1000);
+    } else {
+      alert("1以上の整数を入力してください");
+      setTimeout(() => {
+        event.target.focus();
+      }, 0);
+    }
+  }
+
+  function handleBlurMaxAiThinkingCount(event: React.FocusEvent<HTMLInputElement, Element>) {
+    const countString = event.target.value;
+    const count = Number(countString);
+    if (Number.isInteger(count) && 0 < count) {
+      setMaxAiThinkingCount(count);
+    } else {
+      alert("1以上の整数を入力してください");
+      setTimeout(() => {
+        event.target.focus();
+      }, 0);
+    }
+  }
+
   return (
     <div className="container">
       <div className="row">
         <div className="col-12">
           <div id="board-othello" className="d-grid" style={{
             gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
-            touchAction: "none",
           }}>
             {board.map((row, rowIndex) => (
               <div>
@@ -165,6 +196,32 @@ export default function Othello(props: { setLockString: (lockString: string | un
             <input className="form-check-input" type="checkbox" name="aiUsage" id="isWhiteAi" checked={aiUsage[CellState.White]}
               onChange={(e) => handleChangeAiUsage(CellState.White, e.target.checked)} />
             <label className="form-check-label" htmlFor="isWhiteAi">白</label>
+          </div>
+        </div>
+        <div className="col-12">
+          <div className="row">
+            <div className="col-auto">
+              <div className="row align-items-center">
+                <div className="col-auto">
+                  <label className="form-label mb-0" htmlFor="maxAiThinkingTime">最大AI思考時間[秒]：</label>
+                </div>
+                <div className="col-auto">
+                  <input type="number" className="form-control form-control-sm d-inline-block" id="maxAiThinkingTime" min="1" step="1"
+                    defaultValue={DEFAULT_MAX_AI_THINKING_TIME} onBlur={handleBlurMaxAiThinkingTime} />
+                </div>
+              </div>
+            </div>
+            <div className="col-auto">
+              <div className="row align-items-center">
+                <div className="col-auto">
+                  <label className="form-label mb-0" htmlFor="maxAiThinkingCount">最大AI思考回数：</label>
+                </div>
+                <div className="col-auto">
+                  <input type="number" className="form-control form-control-sm" id="maxAiThinkingCount" min="1" step="1"
+                    defaultValue={DEFAULT_MAX_AI_THINKING_COUNT} onBlur={handleBlurMaxAiThinkingCount} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div className="col-12">
@@ -267,57 +324,85 @@ function getOpponent(player: StoneColor): StoneColor {
 }
 
 
-function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[]): { coord: Coord, aiThinkingResult: AiThinkingResult } {
-  const winCounts: number[] = candidates.map(_ => 0);
+function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[], maxAiThinkingTime: number, maxAiThinkingCount: number): { coord: Coord, aiThinkingResult: AiThinkingResult } {
+  const winCountDatas: { isNextOppnent: boolean, secondCandidates: Coord[], winCounts: number[] }[] = [];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const coord = candidates[i];
+    const newBoard = baseBoard.map(row => [...row]);
+
+    reverseStones(newBoard, coord.y, coord.x, player, false);
+    newBoard[coord.y][coord.x] = player;
+
+    const nextPlayer = getOpponent(player);
+
+    const secondCandidates = getCandidates(newBoard, nextPlayer);
+
+    if (0 < secondCandidates.length) {
+      winCountDatas.push({ isNextOppnent: true, secondCandidates, winCounts: Array(secondCandidates.length).fill(0) });
+    } else {
+      const secondCandidates = getCandidates(newBoard, player);
+      winCountDatas.push({ isNextOppnent: false, secondCandidates, winCounts: Array(secondCandidates.length).fill(0) });
+    }
+  }
+
   let gameCount = 0;
 
   const startTime = performance.now();
-  const thinkingTime = 3000; // ミリ秒
 
-  while (performance.now() - startTime < thinkingTime) {
+  while (gameCount < maxAiThinkingCount && performance.now() - startTime < maxAiThinkingTime) {
     gameCount++;
-    for (let i = 0; i < candidates.length; i++) {
+    for (let i = 0; i < winCountDatas.length; i++) {
+      const firstBoard = baseBoard.map(row => [...row]);
+
       const coord = candidates[i];
-      const newBoard = baseBoard.map(row => [...row]);
+      reverseStones(firstBoard, coord.y, coord.x, player, false);
+      firstBoard[coord.y][coord.x] = player;
 
-      reverseStones(newBoard, coord.y, coord.x, player, false);
-      newBoard[coord.y][coord.x] = player;
+      const { isNextOppnent, secondCandidates, winCounts } = winCountDatas[i];
 
-      let currentPlayer = player;
+      for (let j = 0; j < secondCandidates.length; j++) {
+        const newBoard = firstBoard.map(row => [...row]);
 
-      while (true) {
-        const nextPlayer = getOpponent(currentPlayer);
-
-        let nextCandidates = getCandidates(newBoard, nextPlayer);
-        if (0 < nextCandidates.length) {
-          currentPlayer = nextPlayer;
-        } else {
-          nextCandidates = getCandidates(newBoard, currentPlayer);
-          if (0 < nextCandidates.length) {
-            // プレイヤーを変えずに続行
-          } else {
-            const stoneCounts = countStones(newBoard);
-            if (stoneCounts.black < stoneCounts.white) {
-              winCounts[i] += (player === CellState.Black ? 0 : 1);
-            } else if (stoneCounts.black > stoneCounts.white) {
-              winCounts[i] += (player === CellState.Black ? 1 : 0);
-            } else {
-              winCounts[i] += 0.5;
-            }
-            break;
-          }
-        }
-
-        const randomCandidateIndex = Math.floor(Math.random() * nextCandidates.length);
-        const nextCoord = nextCandidates[randomCandidateIndex];
-        const reversedSconesCount = reverseStones(newBoard, nextCoord.y, nextCoord.x, currentPlayer, false);
-        if (reversedSconesCount === 0) {
-          throw new Error("AIの手番でありながら、打てる場所がない");
-        }
+        let currentPlayer = isNextOppnent ? getOpponent(player) : player;
+        const nextCoord = secondCandidates[j];
+        reverseStones(newBoard, nextCoord.y, nextCoord.x, currentPlayer, false);
         newBoard[nextCoord.y][nextCoord.x] = currentPlayer;
+
+        while (true) {
+          const nextPlayer = getOpponent(currentPlayer);
+
+          let nextCandidates = getCandidates(newBoard, nextPlayer);
+          if (0 < nextCandidates.length) {
+            currentPlayer = nextPlayer;
+          } else {
+            nextCandidates = getCandidates(newBoard, currentPlayer);
+            if (0 < nextCandidates.length) {
+              // プレイヤーを変えずに続行
+            } else {
+              const stoneCounts = countStones(newBoard);
+              if (stoneCounts.black < stoneCounts.white) {
+                winCounts[j] += (player === CellState.Black ? 0 : 1);
+              } else if (stoneCounts.black > stoneCounts.white) {
+                winCounts[j] += (player === CellState.Black ? 1 : 0);
+              } else {
+                winCounts[j] += 0;
+              }
+              break;
+            }
+          }
+
+          const randomCandidateIndex = Math.floor(Math.random() * nextCandidates.length);
+          const nextCoord = nextCandidates[randomCandidateIndex];
+          reverseStones(newBoard, nextCoord.y, nextCoord.x, currentPlayer, false);
+          newBoard[nextCoord.y][nextCoord.x] = currentPlayer;
+        }
       }
+
     }
   }
+
+  const winCounts = winCountDatas.map(data => data.isNextOppnent ? Math.min(...data.winCounts) : Math.max(...data.winCounts));
 
   const maxWinCount = Math.max(...winCounts);
   const aiThinkingResult = { winCount: maxWinCount, gameCount };

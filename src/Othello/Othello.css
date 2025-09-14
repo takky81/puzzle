@@ -1,7 +1,7 @@
 #board-othello {
   background-color: green;
   max-width: 100%;
-  max-height: min(100vh, 700px);
+  max-height: min(100vh, 650px);
   aspect-ratio: 1 / 1;
 }
 
