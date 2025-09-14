@@ -13,6 +13,16 @@ const enum CellState {
   White = 2,
 }
 
+const enum AiLevel {
+  Strong,
+  Weak,
+}
+
+const AI_LEVEL_SELECT_OPTIONS = [
+  { label: "強い", value: AiLevel.Strong },
+  { label: "弱い", value: AiLevel.Weak },
+];
+
 type StoneColor = CellState.Black | CellState.White;
 
 interface StoneCounts {
@@ -66,6 +76,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
   });
   const [maxAiThinkingTime, setMaxAiThinkingTime] = useState(DEFAULT_MAX_AI_THINKING_TIME * 1000);
   const [maxAiThinkingCount, setMaxAiThinkingCount] = useState(DEFAULT_MAX_AI_THINKING_COUNT);
+  const [aiLevel, setAiLevel] = useState(AiLevel.Strong);
 
   useEffect(() => {
     resetGame();
@@ -80,7 +91,7 @@ export default function Othello(props: { setLockString: (lockString: string | un
 
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        const { coord, aiThinkingResult } = aiAction(board, currentPlayer, candidates, maxAiThinkingTime, maxAiThinkingCount);
+        const { coord, aiThinkingResult } = aiAction(board, currentPlayer, candidates, maxAiThinkingTime, maxAiThinkingCount, aiLevel);
         setAiThinkingResult(prev => ({ ...prev, [currentPlayer]: aiThinkingResult }));
         handleCellClick(coord.y, coord.x, candidates.some(c => c.y === coord.y && c.x === coord.x));
 
@@ -158,6 +169,11 @@ export default function Othello(props: { setLockString: (lockString: string | un
     }
   }
 
+  function handleChangeAiLevel(event: React.ChangeEvent<HTMLSelectElement>) {
+    const selectedAiLevel = AI_LEVEL_SELECT_OPTIONS.find(option => option.value.toString() === event.target.value);
+    setAiLevel(selectedAiLevel ? selectedAiLevel.value : AiLevel.Strong);
+  }
+
   return (
     <div className="container">
       <div className="row">
@@ -219,6 +235,20 @@ export default function Othello(props: { setLockString: (lockString: string | un
                 <div className="col-auto">
                   <input type="number" className="form-control form-control-sm" id="maxAiThinkingCount" min="1" step="1"
                     defaultValue={DEFAULT_MAX_AI_THINKING_COUNT} onBlur={handleBlurMaxAiThinkingCount} />
+                </div>
+              </div>
+            </div>
+            <div className="col-auto">
+              <div className="row align-items-center">
+                <div className="col-auto">
+                  <label className="form-label mb-0" htmlFor="aiLevel">AIの強さ：</label>
+                </div>
+                <div className="col-auto">
+                  <select className="form-control form-control-sm" id="aiLevel" value={aiLevel} onChange={handleChangeAiLevel}>
+                    {AI_LEVEL_SELECT_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -324,7 +354,7 @@ function getOpponent(player: StoneColor): StoneColor {
 }
 
 
-function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[], maxAiThinkingTime: number, maxAiThinkingCount: number): { coord: Coord, aiThinkingResult: AiThinkingResult } {
+function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[], maxAiThinkingTime: number, maxAiThinkingCount: number, aiLevel: AiLevel): { coord: Coord, aiThinkingResult: AiThinkingResult } {
   const winCountDatas: { isNextOppnent: boolean, secondCandidates: Coord[], winCounts: number[] }[] = [];
 
   for (let i = 0; i < candidates.length; i++) {
@@ -402,9 +432,16 @@ function aiAction(baseBoard: Board, player: StoneColor, candidates: Coord[], max
     }
   }
 
-  const winCounts = winCountDatas.map(data => data.isNextOppnent ? Math.min(...data.winCounts) : Math.max(...data.winCounts));
+  let winCounts;
+  let maxWinCount;
+  if (aiLevel === AiLevel.Strong) {
+    winCounts = winCountDatas.map(data => data.isNextOppnent ? Math.min(...data.winCounts) : Math.max(...data.winCounts));
+    maxWinCount = Math.max(...winCounts);
+  } else {
+    winCounts = winCountDatas.map(data => data.isNextOppnent ? Math.max(...data.winCounts) : Math.min(...data.winCounts));
+    maxWinCount = Math.min(...winCounts);
+  }
 
-  const maxWinCount = Math.max(...winCounts);
   const aiThinkingResult = { winCount: maxWinCount, gameCount };
   const coord = candidates[winCounts.indexOf(maxWinCount)];
 
