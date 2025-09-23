@@ -259,7 +259,7 @@ export default function Game2048(props: { isActive: boolean }) {
       message += `\nハイスコアを更新しました！: ${highScore} → ${score}`;
     }
     setIsGameOverShown(false);
-    alert(message);
+    setTimeout(() => alert(message), 100);
   }
 
   function createInitialBoard() {
