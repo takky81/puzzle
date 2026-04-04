@@ -139,12 +139,55 @@ function choosePositionEasy(board: Board, empty: [number, number][]): [number, n
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
+function canMergeNextTurn(board: Board, r: number, c: number, value: number): boolean {
+  const neighbors: [number, number][] = [
+    [r - 1, c],
+    [r + 1, c],
+    [r, c - 1],
+    [r, c + 1],
+  ];
+  return neighbors.some(
+    ([nr, nc]) => nr >= 0 && nr < 4 && nc >= 0 && nc < 4 && board[nr][nc] === value,
+  );
+}
+
+function adjacentSum(board: Board, r: number, c: number): number {
+  const neighbors: [number, number][] = [
+    [r - 1, c],
+    [r + 1, c],
+    [r, c - 1],
+    [r, c + 1],
+  ];
+  let sum = 0;
+  for (const [nr, nc] of neighbors) {
+    if (nr >= 0 && nr < 4 && nc >= 0 && nc < 4) {
+      if (board[nr][nc] !== 0) {
+        sum += board[nr][nc];
+      } else {
+        // 空きマスがある場合はその先の隣接タイルを参照
+        const dr = nr - r;
+        const dc = nc - c;
+        let sr = nr + dr;
+        let sc = nc + dc;
+        while (sr >= 0 && sr < 4 && sc >= 0 && sc < 4 && board[sr][sc] === 0) {
+          sr += dr;
+          sc += dc;
+        }
+        if (sr >= 0 && sr < 4 && sc >= 0 && sc < 4) {
+          sum += board[sr][sc];
+        }
+      }
+    }
+  }
+  return sum;
+}
+
 function choosePositionHard(
   board: Board,
   empty: [number, number][],
   value: number,
 ): [number, number] {
-  // 各空きマスにタイルを置いた場合の動かせる方向数を計算
+  // Criteria #1: 動かせる方向が最も少なくなる位置
   let bestPositions: [number, number][] = [];
   let minDirections = 5;
 
@@ -160,7 +203,34 @@ function choosePositionHard(
     }
   }
 
-  return bestPositions[Math.floor(Math.random() * bestPositions.length)];
+  if (bestPositions.length <= 1) {
+    return bestPositions[0];
+  }
+
+  // Criteria #2: マージできない位置を優先
+  const nonMergeable = bestPositions.filter(([r, c]) => !canMergeNextTurn(board, r, c, value));
+  if (nonMergeable.length > 0) {
+    bestPositions = nonMergeable;
+  }
+
+  if (bestPositions.length <= 1) {
+    return bestPositions[0];
+  }
+
+  // Criteria #3: 隣接タイルの合計値が大きい位置
+  let maxSum = -1;
+  let finalPositions: [number, number][] = [];
+  for (const [r, c] of bestPositions) {
+    const sum = adjacentSum(board, r, c);
+    if (sum > maxSum) {
+      maxSum = sum;
+      finalPositions = [[r, c]];
+    } else if (sum === maxSum) {
+      finalPositions.push([r, c]);
+    }
+  }
+
+  return finalPositions[Math.floor(Math.random() * finalPositions.length)];
 }
 
 export function addRandomTile(board: Board, difficulty: Difficulty): Board {
