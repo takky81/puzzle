@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 
 	const games = [
 		{ name: 'オセロ', path: '/othello', emoji: '⚫', description: '白と黒の石で陣地を取り合う定番ボードゲーム' },
@@ -15,8 +15,8 @@
 <h1>ゲーム一覧</h1>
 
 <div class="game-grid">
-	{#each games as game}
-		<a href="{base}{game.path}" class="game-card">
+	{#each games as game (game.path)}
+		<a href={resolve(game.path, {})} class="game-card">
 			<span class="game-emoji">{game.emoji}</span>
 			<h2>{game.name}</h2>
 			<p>{game.description}</p>

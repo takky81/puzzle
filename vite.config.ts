@@ -3,10 +3,5 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
-	test: {
-		include: ['src/**/*.{test,spec}.{js,ts}'],
-		environment: 'jsdom',
-		setupFiles: ['src/tests/setup.ts']
-	}
+	plugins: [tailwindcss(), sveltekit()]
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import '../app.css';
 
 	let { children } = $props();
@@ -13,7 +13,7 @@
 
 <header>
 	<nav>
-		<a href="{base}/" class="logo">Puzzle & Games</a>
+		<a href={resolve('/', {})} class="logo">Puzzle & Games</a>
 	</nav>
 </header>
 

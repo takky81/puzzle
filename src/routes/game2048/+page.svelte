@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 </script>
 
 <svelte:head>
 	<title>2048 - Puzzle & Games</title>
 </svelte:head>
 
-<a href="{base}/" class="back">&larr; 戻る</a>
+<a href={resolve('/', {})} class="back">&larr; 戻る</a>
 <h1>2048</h1>
 <p class="wip">準備中...</p>
 
