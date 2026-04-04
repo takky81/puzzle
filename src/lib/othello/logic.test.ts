@@ -137,25 +137,17 @@ describe('オセロ ロジック', () => {
     });
 
     test('複数方向の石が同時に裏返る', () => {
-      // カスタム盤面: 複数方向で挟める配置
+      // 黒が複数方向で白を挟む配置
       const board: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
-      board[3][3] = 'black';
-      board[4][4] = 'white';
+      board[2][4] = 'black';
+      board[3][4] = 'white';
       board[4][3] = 'white';
-      board[5][3] = 'black';
-      // (5,5)に黒を置くと斜め(4,4)が裏返る
-      // (3,3)に白を置くと... 別の配置を用意
-      // より明確な例: 黒が複数方向で白を挟む
-      const board2: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
-      board2[2][4] = 'black';
-      board2[3][4] = 'white';
-      board2[4][3] = 'white';
-      board2[4][5] = 'white';
-      board2[4][2] = 'black';
-      board2[4][6] = 'black';
+      board[4][5] = 'white';
+      board[4][2] = 'black';
+      board[4][6] = 'black';
       // (4,4)に黒を置くと、上方向(3,4)と左方向(4,3)と右方向(4,5)が裏返る
       const game: GameState = {
-        board: board2,
+        board,
         currentColor: 'black',
         gameOver: false,
         passed: false,
