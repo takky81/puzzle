@@ -5,6 +5,7 @@ import {
   chooseHardMove,
   evaluatePosition,
   countStableDiscs,
+  evaluate,
 } from './ai';
 import { createGame, getValidMoves, placeStone } from './logic';
 import type { Board, GameState } from './types';
@@ -88,7 +89,95 @@ describe('オセロ AI', () => {
     });
   });
 
+  describe('複合評価関数', () => {
+    test('位置の重みを評価に反映する（角が高評価、角隣が低評価）', () => {
+      // 自分が角を持つ盤面 vs 角隣を持つ盤面
+      const boardCorner = emptyBoard();
+      boardCorner[0][0] = 'black'; // 角 (+100)
+      // 相手の石も置いて空きマスを減らさない（終盤条件回避）
+      boardCorner[4][4] = 'white';
+
+      const boardAdj = emptyBoard();
+      boardAdj[0][1] = 'black'; // 角隣 (-20)
+      boardAdj[4][4] = 'white';
+
+      expect(evaluate(boardCorner, 'black')).toBeGreaterThan(evaluate(boardAdj, 'black'));
+    });
+
+    test('確定石が多いほど評価が高い', () => {
+      // 角から辺に連続する黒石（確定石3つ）
+      const boardStable = emptyBoard();
+      boardStable[0][0] = 'black';
+      boardStable[0][1] = 'black';
+      boardStable[0][2] = 'black';
+      boardStable[4][4] = 'white';
+
+      // 角なし、確定石0の盤面
+      const boardUnstable = emptyBoard();
+      boardUnstable[3][3] = 'black';
+      boardUnstable[3][4] = 'black';
+      boardUnstable[3][5] = 'black';
+      boardUnstable[4][4] = 'white';
+
+      expect(evaluate(boardStable, 'black')).toBeGreaterThan(evaluate(boardUnstable, 'black'));
+    });
+
+    test('着手可能数が多いほど評価が高い', () => {
+      // 白が中央、黒が上下左右に隣接 → 黒は合法手0、白は合法手4
+      const board = emptyBoard();
+      board[3][3] = 'white';
+      board[2][3] = 'black';
+      board[3][2] = 'black';
+      board[3][4] = 'black';
+      board[4][3] = 'black';
+
+      const blackMoves = getValidMoves(board, 'black').length;
+      const whiteMoves = getValidMoves(board, 'white').length;
+      expect(blackMoves).toBe(0);
+      expect(whiteMoves).toBeGreaterThan(0);
+
+      // 同じ盤面を白視点で見ると着手可能数で有利 → 白の評価 > 黒の評価
+      expect(evaluate(board, 'white')).toBeGreaterThan(evaluate(board, 'black'));
+    });
+
+    test('終盤（空きマス10以下）は石数差を重視する', () => {
+      // 空きマス10以下の盤面: 黒が多い
+      const board = Array.from({ length: 8 }, () =>
+        Array.from({ length: 8 }, () => 'black' as const),
+      ) as Board;
+      board[0][0] = 'white';
+      board[0][1] = 'white';
+      board[0][2] = null;
+      board[0][3] = null;
+      // 空き2マス、黒60 白2 → 終盤で黒圧倒的有利
+
+      const scoreBlack = evaluate(board, 'black');
+      const scoreWhite = evaluate(board, 'white');
+      expect(scoreBlack).toBeGreaterThan(0);
+      expect(scoreWhite).toBeLessThan(0);
+    });
+  });
+
   describe('ミニマックスAI（強い）', () => {
+    test('角が取れる局面では角を優先する', () => {
+      const board = emptyBoard();
+      board[0][1] = 'white';
+      board[0][2] = 'black';
+      board[1][0] = 'white';
+      board[2][0] = 'black';
+      // (0,0)は角で合法手 — ミニマックスでも角を最優先すべき
+      const game: GameState = {
+        board,
+        currentColor: 'black',
+        gameOver: false,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+      const move = chooseHardMove(game, { maxDepth: 3, maxTime: 3000 });
+      expect(move).toEqual([0, 0]);
+    });
+
     test('1手先読みで最善手を返す', () => {
       const game = createGame();
       const move = chooseHardMove(game, { maxDepth: 1, maxTime: 3000 });

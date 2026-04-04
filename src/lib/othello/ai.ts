@@ -95,7 +95,7 @@ function countEmpty(board: Board): number {
   return count;
 }
 
-function evaluate(board: Board, color: Color): number {
+export function evaluate(board: Board, color: Color): number {
   const opp = opponent(color);
   const empty = countEmpty(board);
 

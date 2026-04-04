@@ -72,6 +72,7 @@ function cloneBoard(board: Board): Board {
 }
 
 export function placeStone(game: GameState, row: number, col: number): GameState | null {
+  if (game.gameOver) return null;
   const flips = getAllFlips(game.board, row, col, game.currentColor);
   if (flips.length === 0) return null;
 

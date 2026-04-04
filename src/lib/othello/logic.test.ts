@@ -193,6 +193,50 @@ describe('オセロ ロジック', () => {
       const result = placeStone(game, 0, 0);
       expect(result).toBeNull();
     });
+
+    test('placeStoneは元のGameStateを変更しない', () => {
+      const game = createGame();
+      const originalBoard = JSON.stringify(game.board);
+      const originalColor = game.currentColor;
+
+      placeStone(game, 2, 3);
+
+      // 元の状態が変更されていないこと
+      expect(JSON.stringify(game.board)).toBe(originalBoard);
+      expect(game.currentColor).toBe(originalColor);
+      expect(game.gameOver).toBe(false);
+      expect(game.passed).toBe(false);
+      expect(game.lastMove).toBeNull();
+    });
+
+    test('石を置くとlastMoveにその位置が記録される', () => {
+      const game = createGame();
+      const result = placeStone(game, 2, 3);
+      expect(result!.lastMove).toEqual([2, 3]);
+    });
+    test('複数方向の裏返しでflippedリストに全方向の石が含まれる', () => {
+      const board: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+      board[2][4] = 'black';
+      board[3][4] = 'white';
+      board[4][3] = 'white';
+      board[4][5] = 'white';
+      board[4][2] = 'black';
+      board[4][6] = 'black';
+      // (4,4)に黒を置くと、上(3,4)、左(4,3)、右(4,5)の3方向が裏返る
+      const game: GameState = {
+        board,
+        currentColor: 'black',
+        gameOver: false,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+      const result = placeStone(game, 4, 4);
+      expect(result!.flipped).toHaveLength(3);
+      expect(result!.flipped).toContainEqual([3, 4]);
+      expect(result!.flipped).toContainEqual([4, 3]);
+      expect(result!.flipped).toContainEqual([4, 5]);
+    });
   });
 
   describe('ターン管理', () => {
@@ -281,6 +325,59 @@ describe('オセロ ロジック', () => {
       const blackMoves = getValidMoves(board, 'black');
       expect(blackMoves.length).toBeGreaterThan(0);
     });
+
+    test('placeStone後に両者合法手がなければgameOverがtrueになる', () => {
+      // 全マス黒で、1箇所だけ白・1箇所空の盤面
+      const board: Board = Array.from({ length: 8 }, () =>
+        Array.from({ length: 8 }, () => 'black' as const),
+      );
+      board[0][1] = 'white';
+      board[0][2] = null;
+      // (0,2)に黒を置くと左方向で(0,1)白を挟んで裏返し → 全マス黒 → 両者合法手なし
+      const game: GameState = {
+        board,
+        currentColor: 'black',
+        gameOver: false,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+      const result = placeStone(game, 0, 2);
+      expect(result).not.toBeNull();
+      expect(result!.gameOver).toBe(true);
+    });
+    test('連続パス（パス後に相手も置けない）でゲーム終了になる', () => {
+      // 黒が置いた後、白も黒も置けない盤面 → パスではなくゲーム終了
+      const board: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+      board[0][0] = 'black';
+      board[0][1] = 'white';
+      board[0][2] = null;
+      // 黒が(0,2)に置く → (0,1)裏返る → [黒,黒,黒,空,空,...] → 白は石がゼロで置けない、黒も挟める相手がいない
+      const game: GameState = {
+        board,
+        currentColor: 'black',
+        gameOver: false,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+      const result = placeStone(game, 0, 2);
+      expect(result).not.toBeNull();
+      expect(result!.gameOver).toBe(true);
+    });
+    test('ゲーム終了後はplaceStoneでnullが返る', () => {
+      const game: GameState = {
+        board: createGame().board,
+        currentColor: 'black',
+        gameOver: true,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+      // ゲーム終了状態では合法手があっても石を置けない
+      const result = placeStone(game, 2, 3);
+      expect(result).toBeNull();
+    });
   });
 
   describe('スコア計算', () => {
@@ -308,6 +405,14 @@ describe('オセロ ロジック', () => {
     test('同数の場合は引き分けである', () => {
       const game = createGame();
       expect(getWinner(game.board)).toBeNull();
+    });
+
+    test('白の石が多い場合は白が勝者である', () => {
+      const board: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+      board[0][0] = 'white';
+      board[0][1] = 'white';
+      board[0][2] = 'black';
+      expect(getWinner(board)).toBe('white');
     });
   });
 
