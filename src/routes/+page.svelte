@@ -2,9 +2,24 @@
 	import { resolve } from '$app/paths';
 
 	const games = [
-		{ name: 'オセロ', path: '/othello', emoji: '⚫', description: '白と黒の石で陣地を取り合う定番ボードゲーム' },
-		{ name: '2048', path: '/game2048', emoji: '🔢', description: '数字タイルをスライドして2048を目指すパズル' },
-		{ name: '一筆書き', path: '/one-stroke', emoji: '✏️', description: '全ての線を一筆で通るパズル' }
+		{
+			name: 'オセロ',
+			path: '/othello',
+			emoji: '⚫',
+			description: '白と黒の石で陣地を取り合う定番ボードゲーム'
+		},
+		{
+			name: '2048',
+			path: '/game2048',
+			emoji: '🔢',
+			description: '数字タイルをスライドして2048を目指すパズル'
+		},
+		{
+			name: '一筆書き',
+			path: '/one-stroke',
+			emoji: '✏️',
+			description: '全ての線を一筆で通るパズル'
+		}
 	];
 </script>
 
@@ -50,7 +65,9 @@
 		text-decoration: none;
 		color: inherit;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-		transition: transform 0.15s, box-shadow 0.15s;
+		transition:
+			transform 0.15s,
+			box-shadow 0.15s;
 	}
 
 	.game-card:active,
