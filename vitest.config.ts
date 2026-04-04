@@ -3,16 +3,16 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
-	test: {
-		include: ['src/**/*.{test,spec}.{js,ts}'],
-		environment: 'jsdom',
-		setupFiles: ['src/tests/setup.ts'],
-		passWithNoTests: true,
-		coverage: {
-			provider: 'v8',
-			include: ['src/lib/**/*.ts'],
-			exclude: ['src/lib/**/types.ts']
-		}
-	}
+  plugins: [tailwindcss(), sveltekit()],
+  test: {
+    include: ['src/**/*.{test,spec}.{js,ts}'],
+    environment: 'jsdom',
+    setupFiles: ['src/tests/setup.ts'],
+    passWithNoTests: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/lib/**/*.ts'],
+      exclude: ['src/lib/**/types.ts'],
+    },
+  },
 });

@@ -82,10 +82,10 @@ export function getValidMoves(board: Board, color: Color): Position[] { ... }
 
 ```svelte
 <script lang="ts">
-	import { createBoard, placeStone, getValidMoves } from '$lib/othello/logic';
+  import { createBoard, placeStone, getValidMoves } from '$lib/othello/logic';
 
-	let board = $state(createBoard());
-	let validMoves = $derived(getValidMoves(board, currentColor));
+  let board = $state(createBoard());
+  let validMoves = $derived(getValidMoves(board, currentColor));
 </script>
 ```
 
