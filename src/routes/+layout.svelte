@@ -11,50 +11,21 @@
   <meta name="description" content="パズル & ゲーム コレクション" />
 </svelte:head>
 
-<header>
-  <nav>
-    <a href={resolve('/', {})} class="logo">Puzzle & Games</a>
+<header class="bg-primary px-4 py-3">
+  <nav class="mx-auto max-w-[800px]">
+    <a href={resolve('/', {})} class="text-xl font-bold text-white no-underline">Puzzle & Games</a>
   </nav>
 </header>
 
-<main>
+<main class="mx-auto max-w-[800px] p-4">
   {@render children()}
 </main>
 
 <style>
-  :global(*, *::before, *::after) {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
   :global(body) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f5f5f5;
-    color: #333;
+    background: var(--color-base-bg);
+    color: var(--color-base-text);
     min-height: 100dvh;
-  }
-
-  header {
-    background: #2c3e50;
-    padding: 0.75rem 1rem;
-  }
-
-  nav {
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .logo {
-    color: #fff;
-    text-decoration: none;
-    font-size: 1.25rem;
-    font-weight: bold;
-  }
-
-  main {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 1rem;
   }
 </style>

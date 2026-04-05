@@ -123,26 +123,28 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="container">
-  <a href={resolve('/', {})} class="back">&larr; 戻る</a>
-  <h1>2048</h1>
+<div class="mx-auto max-w-[400px] select-none p-4">
+  <a href={resolve('/', {})} class="mb-2 inline-block text-primary no-underline">&larr; 戻る</a>
+  <h1 class="mb-2 text-3xl font-bold text-[#776e65]">2048</h1>
 
-  <div class="scores">
-    <div class="score-box">
-      <span class="score-label">SCORE</span>
-      <span class="score-value">{state.score}</span>
+  <div class="mb-3 flex gap-2">
+    <div class="score-box flex min-w-20 flex-col items-center rounded-md bg-[#bbada0] px-4 py-1">
+      <span class="score-label text-xs uppercase text-[#eee4da]">SCORE</span>
+      <span class="score-value text-xl font-bold text-white">{state.score}</span>
     </div>
-    <div class="score-box">
-      <span class="score-label">BEST</span>
-      <span class="score-value">{state.bestScore}</span>
+    <div class="score-box flex min-w-20 flex-col items-center rounded-md bg-[#bbada0] px-4 py-1">
+      <span class="score-label text-xs uppercase text-[#eee4da]">BEST</span>
+      <span class="score-value text-xl font-bold text-white">{state.bestScore}</span>
     </div>
   </div>
 
-  <div class="difficulty">
+  <div class="mb-3 flex gap-1">
     {#each difficulties as d (d.value)}
       <button
-        class="diff-btn"
-        class:active={state.difficulty === d.value}
+        class="diff-btn cursor-pointer rounded border-2 px-3 py-1 font-bold {state.difficulty ===
+        d.value
+          ? 'active border-[#8f7a66] bg-[#8f7a66] text-white'
+          : 'border-[#bbada0] bg-white text-[#776e65]'}"
         onclick={() => handleDifficulty(d.value)}
       >
         {d.label}
@@ -151,13 +153,17 @@
   </div>
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="grid" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
+  <div
+    class="grid aspect-square grid-cols-4 gap-2 rounded-lg bg-[#bbada0] p-2 touch-none relative"
+    ontouchstart={handleTouchStart}
+    ontouchend={handleTouchEnd}
+  >
     {#each state.board as row, r (r)}
       {#each row as cell, c (r * 4 + c)}
         <div
-          class="cell"
-          class:pop={state.lastMerged?.[r]?.[c] === true}
-          class:appear={state.lastNewTile?.[0] === r && state.lastNewTile?.[1] === c}
+          class="cell flex items-center justify-center rounded-md font-bold transition-all duration-100
+            {state.lastMerged?.[r]?.[c] === true ? 'pop' : ''}
+            {state.lastNewTile?.[0] === r && state.lastNewTile?.[1] === c ? 'appear' : ''}"
           style:background-color={cell === 0 ? '#cdc1b4' : tileColor(cell)}
           style:color={textColor(cell)}
           style:font-size={fontSize(cell)}
@@ -168,152 +174,39 @@
     {/each}
 
     {#if message}
-      <div class="overlay">
-        <span class="message">{message}</span>
+      <div
+        class="overlay absolute inset-0 flex items-center justify-center rounded-lg bg-[rgba(238,228,218,0.73)]"
+      >
+        <span class="message text-3xl font-bold text-[#776e65]">{message}</span>
       </div>
     {/if}
   </div>
 
-  <div class="controls">
-    <button onclick={handleUndo} disabled={state.history.length === 0}>Undo</button>
-    <button onclick={newGame}>New Game</button>
-    <button onclick={handleRedo} disabled={state.future.length === 0}>Redo</button>
+  <div class="mt-3 flex justify-center gap-2">
+    <button
+      class="rounded-md bg-[#8f7a66] px-4 py-2 text-base font-bold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+      onclick={handleUndo}
+      disabled={state.history.length === 0}
+    >
+      Undo
+    </button>
+    <button
+      class="rounded-md bg-[#8f7a66] px-4 py-2 text-base font-bold text-white cursor-pointer"
+      onclick={newGame}
+    >
+      New Game
+    </button>
+    <button
+      class="rounded-md bg-[#8f7a66] px-4 py-2 text-base font-bold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+      onclick={handleRedo}
+      disabled={state.future.length === 0}
+    >
+      Redo
+    </button>
   </div>
 </div>
 
 <style>
-  .container {
-    max-width: 400px;
-    margin: 0 auto;
-    padding: 1rem;
-    user-select: none;
-  }
-
-  .back {
-    display: inline-block;
-    margin-bottom: 1rem;
-    color: #2c3e50;
-    text-decoration: none;
-  }
-
-  h1 {
-    margin-bottom: 0.5rem;
-    color: #776e65;
-    font-size: 2rem;
-  }
-
-  .scores {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .score-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #bbada0;
-    border-radius: 6px;
-    padding: 0.25rem 1rem;
-    min-width: 80px;
-  }
-
-  .score-label {
-    font-size: 0.75rem;
-    color: #eee4da;
-    text-transform: uppercase;
-  }
-
-  .score-value {
-    font-size: 1.25rem;
-    font-weight: bold;
-    color: white;
-  }
-
-  .difficulty {
-    display: flex;
-    gap: 0.25rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .diff-btn {
-    padding: 0.25rem 0.75rem;
-    border: 2px solid #bbada0;
-    border-radius: 4px;
-    background: white;
-    color: #776e65;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  .diff-btn.active {
-    background: #8f7a66;
-    color: white;
-    border-color: #8f7a66;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    background: #bbada0;
-    border-radius: 8px;
-    padding: 8px;
-    aspect-ratio: 1;
-    position: relative;
-    touch-action: none;
-  }
-
-  .cell {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    font-weight: bold;
-    transition:
-      background-color 0.1s,
-      transform 0.1s;
-  }
-
-  .overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(238, 228, 218, 0.73);
-    border-radius: 8px;
-  }
-
-  .message {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #776e65;
-  }
-
-  .controls {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-    justify-content: center;
-  }
-
-  .controls button {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    background: #8f7a66;
-    color: white;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  .controls button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .cell.pop {
     animation: pop 0.2s ease;
   }
