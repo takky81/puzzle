@@ -10,6 +10,32 @@ function shuffle<T>(arr: T[]): T[] {
   return result;
 }
 
+export function canHaveCycle(grid: Grid): boolean {
+  const pathCells = getPathCells(grid);
+  if (pathCells.length < 4 || pathCells.length % 2 !== 0) return false;
+
+  // 全マスが隣接2以上
+  for (const cell of pathCells) {
+    if (getNeighbors(grid, cell).length < 2) return false;
+  }
+
+  // 全連結チェック（BFS）
+  const visited = new Set<string>();
+  const queue = [pathCells[0]];
+  visited.add(posKey(pathCells[0]));
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const nbr of getNeighbors(grid, current)) {
+      const key = posKey(nbr);
+      if (!visited.has(key)) {
+        visited.add(key);
+        queue.push(nbr);
+      }
+    }
+  }
+  return visited.size === pathCells.length;
+}
+
 function findOneCycle(grid: Grid): Edge[] | null {
   const state = createSolverState(grid);
   if (!state) return null;
@@ -226,20 +252,25 @@ export function isUniqueSolution(grid: Grid): boolean {
   return solveCycle(grid).type === 'unique';
 }
 
+function gridKey(grid: Grid): string {
+  return grid.map((row) => row.map((c) => (c === 'wall' ? 'W' : '.')).join('')).join('|');
+}
+
 export function generateStage(
   rows: number,
   cols: number,
   onProgress?: (attempt: number) => void,
 ): Stage {
   const total = rows * cols;
+  const noneCache = new Set<string>();
 
   for (let attempt = 0; attempt < 100000; attempt++) {
     if (onProgress && attempt % 100 === 0) {
       onProgress(attempt);
     }
 
+    // ランダムに壁を配置
     const grid = createGrid(rows, cols);
-
     const wallCount = Math.floor(Math.random() * (total / 3));
     if (wallCount > 0) {
       const cells = shuffle(getPathCells(grid));
@@ -248,9 +279,18 @@ export function generateStage(
       }
     }
 
+    // 事前枝刈り: solveCycleを呼ぶ前に不可能な盤面を除外
+    if (!canHaveCycle(grid)) continue;
+
+    const key = gridKey(grid);
+    if (noneCache.has(key)) continue;
+
     const result = solveCycle(grid);
     if (result.type === 'unique') {
       return { grid, solution: result.edges };
+    }
+    if (result.type === 'none') {
+      noneCache.add(key);
     }
   }
 

@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { generateHamiltonianCycle, isUniqueSolution, generateStage, solveCycle } from './generator';
+import {
+  generateHamiltonianCycle,
+  isUniqueSolution,
+  generateStage,
+  solveCycle,
+  canHaveCycle,
+} from './generator';
 import { createGame, toggleEdge, endStroke, posKey } from './logic';
 import type { Grid } from './types';
 
@@ -383,6 +389,63 @@ describe('一筆書きパズル ステージ生成', () => {
         expect(stage.grid[a[0]][a[1]]).toBe('path');
         expect(stage.grid[b[0]][b[1]]).toBe('path');
       }
+    });
+  });
+
+  describe('事前枝刈り', () => {
+    test('pathマスが全連結でないグリッドはクリア不可能と判定する', () => {
+      const grid: Grid = [
+        ['path', 'wall', 'path'],
+        ['path', 'wall', 'path'],
+      ];
+      expect(canHaveCycle(grid)).toBe(false);
+    });
+
+    test('pathマスが奇数のグリッドはクリア不可能と判定する', () => {
+      const grid: Grid = [
+        ['path', 'path', 'path'],
+        ['path', 'path', 'wall'],
+      ];
+      expect(canHaveCycle(grid)).toBe(false);
+    });
+
+    test('pathマスが4未満のグリッドはクリア不可能と判定する', () => {
+      const grid: Grid = [
+        ['path', 'wall'],
+        ['path', 'wall'],
+      ];
+      expect(canHaveCycle(grid)).toBe(false);
+    });
+
+    test('隣接が1つしかないpathマスがあるグリッドはクリア不可能と判定する', () => {
+      const grid: Grid = [
+        ['wall', 'path', 'wall'],
+        ['path', 'path', 'path'],
+        ['path', 'path', 'path'],
+        ['path', 'path', 'path'],
+      ];
+      // (0,1)は(1,1)のみに隣接
+      expect(canHaveCycle(grid)).toBe(false);
+    });
+
+    test('全連結かつ偶数かつ全マス隣接2以上のグリッドはクリア可能と判定する', () => {
+      expect(canHaveCycle(grid2x2)).toBe(true);
+      expect(canHaveCycle(grid3x3CenterWall)).toBe(true);
+      expect(canHaveCycle(grid4x4AllPath)).toBe(true);
+    });
+  });
+
+  describe('ステージ生成（サイズ別検証）', () => {
+    test('4x4ステージの生成結果が有効である', () => {
+      const stage = generateStage(4, 4);
+      expect(isUniqueSolution(stage.grid)).toBe(true);
+      expect(stage.solution.length).toBeGreaterThan(0);
+    });
+
+    test('6x6ステージの生成結果が有効である', () => {
+      const stage = generateStage(6, 6);
+      expect(isUniqueSolution(stage.grid)).toBe(true);
+      expect(stage.solution.length).toBeGreaterThan(0);
     });
   });
 
