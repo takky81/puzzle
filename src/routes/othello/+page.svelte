@@ -7,6 +7,7 @@
     getScore,
     getWinner,
     opponent,
+    passMove,
   } from '$lib/othello/logic';
   import { chooseRandomMove, chooseNormalMove, chooseHardMove } from '$lib/othello/ai';
   import type { Color, Difficulty, GameMode, Position } from '$lib/othello/types';
@@ -60,20 +61,16 @@
     const result = placeStone(game, row, col);
     if (result) {
       game = result;
-      if (gameMode === 'pve' && !game.gameOver) {
+      if (gameMode === 'pve' && !game.gameOver && game.currentColor !== playerColor) {
         scheduleAiMove();
       }
     }
   }
 
   function applyPass(): boolean {
-    const opp = opponent(game.currentColor);
-    if (getValidMoves(game.board, opp).length === 0) {
-      game = { ...game, gameOver: true };
-      return false;
-    }
-    game = { ...game, currentColor: opp, passed: true };
-    return true;
+    const result = passMove(game);
+    game = result;
+    return !result.gameOver;
   }
 
   function chooseMove(difficulty: Difficulty): Position | null {
@@ -101,7 +98,13 @@
       const move = chooseMove(aiDifficulty);
       if (move) {
         const result = placeStone(game, move[0], move[1]);
-        if (result) game = result;
+        if (result) {
+          game = result;
+          if (!game.gameOver && game.currentColor !== playerColor) {
+            scheduleAiMove();
+            return;
+          }
+        }
       } else {
         applyPass();
       }

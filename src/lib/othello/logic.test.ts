@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest';
-import { createGame, opponent, getValidMoves, placeStone, getScore, getWinner } from './logic';
+import {
+  createGame,
+  opponent,
+  getValidMoves,
+  placeStone,
+  getScore,
+  getWinner,
+  passMove,
+} from './logic';
 import type { Board, GameState } from './types';
 
 describe('オセロ ロジック', () => {
@@ -413,6 +421,60 @@ describe('オセロ ロジック', () => {
       board[0][1] = 'white';
       board[0][2] = 'black';
       expect(getWinner(board)).toBe('white');
+    });
+  });
+
+  describe('passMove（パス処理）', () => {
+    // 白の合法手がなく、黒の合法手がある盤面を作成
+    function createWhitePassGame(): GameState {
+      const board: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+      board[0][0] = 'black';
+      board[0][1] = 'white';
+      return {
+        board,
+        currentColor: 'white',
+        gameOver: false,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+    }
+
+    test('合法手がないプレイヤーのターンをスキップし相手に切り替わる', () => {
+      const result = passMove(createWhitePassGame());
+      expect(result.currentColor).toBe('black');
+    });
+
+    test('相手にも合法手がない場合はゲーム終了になる', () => {
+      // 黒も白も合法手がない盤面（石が孤立している）
+      const board: Board = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+      board[0][0] = 'black';
+      const game: GameState = {
+        board,
+        currentColor: 'white',
+        gameOver: false,
+        passed: false,
+        lastMove: null,
+        flipped: [],
+      };
+
+      const result = passMove(game);
+      expect(result.gameOver).toBe(true);
+    });
+
+    test('パス後の状態でpassedフラグがtrueになる', () => {
+      const result = passMove(createWhitePassGame());
+      expect(result.passed).toBe(true);
+    });
+
+    test('passMove後もボードの状態は変わらない', () => {
+      const game = createWhitePassGame();
+      const originalBoard = JSON.stringify(game.board);
+
+      const result = passMove(game);
+
+      expect(JSON.stringify(result.board)).toBe(originalBoard);
+      expect(game.currentColor).toBe('white');
     });
   });
 

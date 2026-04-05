@@ -180,6 +180,33 @@ test.describe('オセロ', () => {
     await expect(page.getByText('黒の番')).toBeVisible();
   });
 
+  test('対AIモードでゲームが最後まで正常に完了する', async ({ page }) => {
+    await page.locator('button', { hasText: '対AI' }).click();
+    await page.locator('button', { hasText: '弱い' }).click();
+
+    // ゲーム終了まで繰り返す（パスが発生してもゲームが固まらないことを検証）
+    const maxAttempts = 120;
+    for (let i = 0; i < maxAttempts; i++) {
+      // ゲーム終了チェック
+      const gameOverMsg = page.locator('.text-primary', { hasText: /の勝ち|引き分け/ });
+      if (await gameOverMsg.isVisible().catch(() => false)) break;
+
+      // プレイヤーのターンでヒントがあればクリック
+      const hints = page.locator('.hint');
+      if ((await hints.count()) > 0) {
+        await hints.first().locator('..').click();
+      }
+
+      // AI応手を待つ
+      await page.waitForTimeout(500);
+    }
+
+    // ゲームが正常に終了していること
+    await expect(page.locator('.text-primary', { hasText: /の勝ち|引き分け/ })).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
   test('対AIモードでAI思考中にローディング表示が出る', async ({ page }) => {
     await page.locator('button', { hasText: '対AI' }).click();
     await page.locator('button', { hasText: '強い' }).click();

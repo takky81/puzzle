@@ -109,6 +109,14 @@ export function placeStone(game: GameState, row: number, col: number): GameState
   };
 }
 
+export function passMove(game: GameState): GameState {
+  const opp = opponent(game.currentColor);
+  if (getValidMoves(game.board, opp).length === 0) {
+    return { ...game, gameOver: true, passed: false };
+  }
+  return { ...game, currentColor: opp, passed: true };
+}
+
 export function getScore(board: Board): { black: number; white: number } {
   let black = 0;
   let white = 0;
