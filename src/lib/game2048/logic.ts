@@ -295,7 +295,7 @@ export function moveAndAddTile(state: GameState, direction: Direction): GameStat
     bestScore: Math.max(state.bestScore, newScore),
     isGameOver: checkGameOver(newBoard),
     isWin: checkWin(newBoard),
-    history: [...state.history, { board: state.board, score: state.score }],
+    history: [...state.history, { board: state.board, score: state.score }].slice(-100),
     future: [],
     lastMerged: result.merged,
     lastNewTile: newTilePos,

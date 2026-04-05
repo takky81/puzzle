@@ -41,17 +41,18 @@
     return '2rem';
   }
 
+  const keyMap: Record<string, Direction> = {
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    w: 'up',
+    s: 'down',
+    a: 'left',
+    d: 'right',
+  };
+
   function handleKeydown(e: KeyboardEvent) {
-    const keyMap: Record<string, Direction> = {
-      ArrowUp: 'up',
-      ArrowDown: 'down',
-      ArrowLeft: 'left',
-      ArrowRight: 'right',
-      w: 'up',
-      s: 'down',
-      a: 'left',
-      d: 'right',
-    };
     const direction = keyMap[e.key];
     if (direction) {
       e.preventDefault();
@@ -59,11 +60,14 @@
     }
   }
 
+  let cachedBestScore = loadBestScore();
+
   function move(direction: Direction) {
     if (state.isGameOver) return;
     state = moveAndAddTile(state, direction);
-    if (browser && state.bestScore > loadBestScore()) {
-      localStorage.setItem('game2048-best-score', String(state.bestScore));
+    if (browser && state.bestScore > cachedBestScore) {
+      cachedBestScore = state.bestScore;
+      localStorage.setItem('game2048-best-score', String(cachedBestScore));
     }
   }
 

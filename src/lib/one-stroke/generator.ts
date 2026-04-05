@@ -165,7 +165,7 @@ function isComplete(state: SolverState): boolean {
 }
 
 function pickBranchNode(state: SolverState): string | null {
-  let bestKey = '';
+  let bestKey: string | null = null;
   let bestCount = Infinity;
   for (const key of state.nodeKeys) {
     if (state.confirmed.get(key)!.size >= 2) continue;
@@ -175,7 +175,7 @@ function pickBranchNode(state: SolverState): string | null {
       bestKey = key;
     }
   }
-  return bestKey || null;
+  return bestKey;
 }
 
 function stateToEdges(state: SolverState): Edge[] {

@@ -74,6 +74,11 @@ export function normalizeEdge(edge: Edge): Edge {
   ];
 }
 
+export function edgeKey(edge: Edge): string {
+  const [[r1, c1], [r2, c2]] = normalizeEdge(edge);
+  return `${r1},${c1}-${r2},${c2}`;
+}
+
 function edgesEqual(a: Edge, b: Edge): boolean {
   const na = normalizeEdge(a);
   const nb = normalizeEdge(b);

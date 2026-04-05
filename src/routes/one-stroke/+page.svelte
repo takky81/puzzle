@@ -13,6 +13,7 @@
     getPathCount,
     getMessage,
     posKey,
+    edgeKey,
   } from '$lib/one-stroke/logic';
   import { SvelteSet } from 'svelte/reactivity';
   import type { Stage, Position } from '$lib/one-stroke/types';
@@ -102,17 +103,10 @@
     return s;
   });
 
-  function edgeKey(a: Position, b: Position): string {
-    const [r1, c1] = a;
-    const [r2, c2] = b;
-    if (r1 < r2 || (r1 === r2 && c1 <= c2)) return `${r1},${c1}-${r2},${c2}`;
-    return `${r2},${c2}-${r1},${c1}`;
-  }
-
   let edgeSet = $derived.by(() => {
     const s = new SvelteSet<string>();
     for (const e of game.edges) {
-      s.add(edgeKey(e[0], e[1]));
+      s.add(edgeKey(e));
     }
     return s;
   });
@@ -120,7 +114,7 @@
   let solutionEdgeSet = $derived.by(() => {
     const s = new SvelteSet<string>();
     for (const e of stage.solution) {
-      s.add(edgeKey(e[0], e[1]));
+      s.add(edgeKey(e));
     }
     return s;
   });
@@ -216,11 +210,11 @@
   }
 
   function hasEdgeBetween(a: Position, b: Position): boolean {
-    return edgeSet.has(edgeKey(a, b));
+    return edgeSet.has(edgeKey([a, b]));
   }
 
   function hasSolutionEdge(a: Position, b: Position): boolean {
-    return solutionEdgeSet.has(edgeKey(a, b));
+    return solutionEdgeSet.has(edgeKey([a, b]));
   }
 
   const sizes = [4, 6, 8];

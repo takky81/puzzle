@@ -20,6 +20,7 @@
   let playerColor: Color = $state('black');
   let game = $state(createGame());
   let aiThinking = $state(false);
+  let aiTimeout: ReturnType<typeof setTimeout> | null = null;
   let eveInterval: ReturnType<typeof setInterval> | null = null;
   let eveSpeed = $state(500);
 
@@ -91,7 +92,8 @@
   function scheduleAiMove() {
     if (game.gameOver) return;
     aiThinking = true;
-    setTimeout(() => {
+    if (aiTimeout) clearTimeout(aiTimeout);
+    aiTimeout = setTimeout(() => {
       if (game.gameOver) {
         aiThinking = false;
         return;
@@ -156,7 +158,10 @@
   }
 
   $effect(() => {
-    return () => stopEve();
+    return () => {
+      stopEve();
+      if (aiTimeout) clearTimeout(aiTimeout);
+    };
   });
 
   const difficulties: { value: Difficulty; label: string }[] = [
