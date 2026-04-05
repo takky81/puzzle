@@ -19,6 +19,7 @@
   let aiDifficultyBlack: Difficulty = $state('normal');
   let aiDifficultyWhite: Difficulty = $state('normal');
   let playerColor: Color = $state('black');
+  let aiMaxTimeSec = $state(3);
   let game = $state(createGame());
   let aiThinking = $state(false);
   let aiTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -82,7 +83,7 @@
       case 'normal':
         return chooseNormalMove(game);
       case 'hard':
-        return chooseHardMove(game);
+        return chooseHardMove(game, { maxDepth: Infinity, maxTime: aiMaxTimeSec * 1000 });
     }
   }
 
@@ -186,6 +187,14 @@
   ];
 </script>
 
+{#snippet thinkingTimeSlider()}
+  <div class="flex flex-wrap items-center gap-1.5">
+    <span class="min-w-20 text-sm text-gray-600">思考時間:</span>
+    <input type="range" min="1" max="10" step="1" bind:value={aiMaxTimeSec} />
+    <span class="text-sm text-gray-600">{aiMaxTimeSec}秒</span>
+  </div>
+{/snippet}
+
 <svelte:head>
   <title>オセロ - Puzzle & Games</title>
 </svelte:head>
@@ -241,6 +250,9 @@
           </button>
         {/each}
       </div>
+      {#if aiDifficulty === 'hard'}
+        {@render thinkingTimeSlider()}
+      {/if}
     </div>
   {/if}
 
@@ -294,6 +306,9 @@
         />
         <span class="text-sm text-gray-600">{eveSpeed}ms</span>
       </div>
+      {#if aiDifficultyBlack === 'hard' || aiDifficultyWhite === 'hard'}
+        {@render thinkingTimeSlider()}
+      {/if}
     </div>
   {/if}
 

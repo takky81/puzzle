@@ -207,6 +207,25 @@ test.describe('オセロ', () => {
     });
   });
 
+  test('対AIモードで強いを選ぶと思考時間設定が表示される', async ({ page }) => {
+    await page.locator('button', { hasText: '対AI' }).click();
+    await expect(page.getByText('思考時間:')).not.toBeVisible();
+
+    await page.locator('button', { hasText: '強い' }).click();
+    await expect(page.getByText('思考時間:')).toBeVisible();
+    await expect(page.getByText('3秒')).toBeVisible();
+  });
+
+  test('AI観戦モードで強いを選ぶと思考時間設定が表示される', async ({ page }) => {
+    await page.locator('button', { hasText: 'AI観戦' }).click();
+    await expect(page.getByText('思考時間:')).not.toBeVisible();
+
+    // 黒AIを強いに変更
+    const hardButtons = page.locator('button', { hasText: '強い' });
+    await hardButtons.first().click();
+    await expect(page.getByText('思考時間:')).toBeVisible();
+  });
+
   test('対AIモードでAI思考中にローディング表示が出る', async ({ page }) => {
     await page.locator('button', { hasText: '対AI' }).click();
     await page.locator('button', { hasText: '強い' }).click();
