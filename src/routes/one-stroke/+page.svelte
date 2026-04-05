@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import {
     createGame,
@@ -224,8 +223,7 @@
   <title>一筆書き - Puzzle & Games</title>
 </svelte:head>
 
-<div class="one-stroke mx-auto max-w-[480px] select-none p-4">
-  <a href={resolve('/', {})} class="mb-2 inline-block text-primary no-underline">&larr; 戻る</a>
+<div class="one-stroke mx-auto max-w-[480px] select-none">
   <h1 class="mb-2 text-3xl font-bold text-primary">一筆書き</h1>
 
   <div class="mb-3 flex items-center gap-2">

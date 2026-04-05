@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { resolve } from '$app/paths';
   import {
     createGame,
     placeStone,
@@ -212,8 +211,7 @@
   <title>オセロ - Puzzle & Games</title>
 </svelte:head>
 
-<div class="othello mx-auto max-w-[480px] select-none p-4">
-  <a href={resolve('/', {})} class="mb-2 inline-block text-primary no-underline">&larr; 戻る</a>
+<div class="othello mx-auto max-w-[480px] select-none">
   <h1 class="mb-2 text-3xl font-bold text-primary">オセロ</h1>
 
   <div class="mb-3 flex gap-1">

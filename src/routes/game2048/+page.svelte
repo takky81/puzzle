@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { resolve } from '$app/paths';
   import { browser } from '$app/environment';
   import { initGame, moveAndAddTile, undo, redo, changeDifficulty } from '$lib/game2048/logic';
   import type { Difficulty, Direction } from '$lib/game2048/types';
@@ -127,8 +126,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="mx-auto max-w-[400px] select-none p-4">
-  <a href={resolve('/', {})} class="mb-2 inline-block text-primary no-underline">&larr; 戻る</a>
+<div class="mx-auto max-w-[400px] select-none">
   <h1 class="mb-2 text-3xl font-bold text-[#776e65]">2048</h1>
 
   <div class="mb-3 flex gap-2">
