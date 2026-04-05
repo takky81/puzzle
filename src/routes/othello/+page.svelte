@@ -22,7 +22,7 @@
   let game = $state(createGame());
   let aiThinking = $state(false);
   let aiTimeout: ReturnType<typeof setTimeout> | null = null;
-  let eveInterval: ReturnType<typeof setInterval> | null = null;
+  let eveTimeout: ReturnType<typeof setTimeout> | null = null;
   let eveSpeed = $state(500);
 
   let validMoveSet = $derived(
@@ -135,9 +135,8 @@
     resetGame();
   }
 
-  function startEve() {
-    stopEve();
-    eveInterval = setInterval(() => {
+  function scheduleEveTurn() {
+    eveTimeout = setTimeout(() => {
       if (game.gameOver) {
         stopEve();
         return;
@@ -149,14 +148,21 @@
         if (result) game = result;
       } else if (!applyPass()) {
         stopEve();
+        return;
       }
+      if (eveTimeout !== null) scheduleEveTurn();
     }, eveSpeed);
   }
 
+  function startEve() {
+    stopEve();
+    scheduleEveTurn();
+  }
+
   function stopEve() {
-    if (eveInterval) {
-      clearInterval(eveInterval);
-      eveInterval = null;
+    if (eveTimeout) {
+      clearTimeout(eveTimeout);
+      eveTimeout = null;
     }
   }
 
@@ -281,7 +287,7 @@
           step="100"
           bind:value={eveSpeed}
           onchange={() => {
-            if (eveInterval) {
+            if (eveTimeout) {
               startEve();
             }
           }}

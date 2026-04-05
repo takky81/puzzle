@@ -7,7 +7,7 @@ import {
   countStableDiscs,
   evaluate,
 } from './ai';
-import { createGame, getValidMoves, placeStone } from './logic';
+import { createGame, getValidMoves, getWinner, passMove, placeStone } from './logic';
 import type { Board, GameState } from './types';
 
 function emptyBoard(): Board {
@@ -242,6 +242,36 @@ describe('オセロ AI', () => {
       // 100ms + マージンで完了すること
       expect(elapsed).toBeLessThan(500);
     });
+  });
+
+  describe('minimaxのパス時maximizing判定', () => {
+    function playGame(hardColor: 'black' | 'white'): GameState {
+      let game = createGame();
+      while (!game.gameOver) {
+        const moves = getValidMoves(game.board, game.currentColor);
+        if (moves.length === 0) {
+          game = passMove(game);
+          continue;
+        }
+        const move =
+          game.currentColor === hardColor
+            ? chooseHardMove(game, { maxDepth: 6, maxTime: 500 })
+            : chooseNormalMove(game);
+        const result = placeStone(game, move[0], move[1]);
+        if (result) game = result;
+      }
+      return game;
+    }
+
+    test('強いAI(黒)は普通のAI(白)に勝つ', () => {
+      const game = playGame('black');
+      expect(getWinner(game.board)).toBe('black');
+    }, 30000);
+
+    test('普通のAI(黒) vs 強いAI(白)でも強いAIが勝つ', () => {
+      const game = playGame('white');
+      expect(getWinner(game.board)).toBe('white');
+    }, 30000);
   });
 
   describe('確定石の計算', () => {

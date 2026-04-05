@@ -133,7 +133,6 @@ function minimax(
   depth: number,
   alpha: number,
   beta: number,
-  maximizing: boolean,
   aiColor: Color,
   deadline: number,
 ): number {
@@ -154,8 +153,10 @@ function minimax(
     if (oppMoves.length === 0) {
       return evaluate(game.board, aiColor);
     }
-    return minimax(passedGame, depth - 1, alpha, beta, !maximizing, aiColor, deadline);
+    return minimax(passedGame, depth - 1, alpha, beta, aiColor, deadline);
   }
+
+  const maximizing = game.currentColor === aiColor;
 
   if (maximizing) {
     let maxEval = -Infinity;
@@ -163,7 +164,7 @@ function minimax(
       if (Date.now() >= deadline) break;
       const next = placeStone(game, r, c);
       if (!next) continue;
-      const val = minimax(next, depth - 1, alpha, beta, false, aiColor, deadline);
+      const val = minimax(next, depth - 1, alpha, beta, aiColor, deadline);
       maxEval = Math.max(maxEval, val);
       alpha = Math.max(alpha, val);
       if (beta <= alpha) break;
@@ -175,7 +176,7 @@ function minimax(
       if (Date.now() >= deadline) break;
       const next = placeStone(game, r, c);
       if (!next) continue;
-      const val = minimax(next, depth - 1, alpha, beta, true, aiColor, deadline);
+      const val = minimax(next, depth - 1, alpha, beta, aiColor, deadline);
       minEval = Math.min(minEval, val);
       beta = Math.min(beta, val);
       if (beta <= alpha) break;
@@ -190,20 +191,34 @@ export function chooseHardMove(
 ): Position {
   const moves = getValidMoves(game.board, game.currentColor);
   const deadline = Date.now() + config.maxTime;
+  const maxDepth = Math.min(config.maxDepth, 64);
 
   let bestMove = moves[0];
-  let bestScore = -Infinity;
 
-  const depth = Math.min(config.maxDepth, 64);
-
-  for (const [r, c] of moves) {
+  // 制限時間内で最善手の精度を段階的に上げる
+  for (let depth = 1; depth <= maxDepth; depth++) {
     if (Date.now() >= deadline) break;
-    const next = placeStone(game, r, c);
-    if (!next) continue;
-    const score = minimax(next, depth - 1, -Infinity, Infinity, false, game.currentColor, deadline);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = [r, c];
+
+    let depthBestMove = moves[0];
+    let depthBestScore = -Infinity;
+    let completed = true;
+
+    for (const [r, c] of moves) {
+      if (Date.now() >= deadline) {
+        completed = false;
+        break;
+      }
+      const next = placeStone(game, r, c);
+      if (!next) continue;
+      const score = minimax(next, depth - 1, depthBestScore, Infinity, game.currentColor, deadline);
+      if (score > depthBestScore) {
+        depthBestScore = score;
+        depthBestMove = [r, c];
+      }
+    }
+
+    if (completed) {
+      bestMove = depthBestMove;
     }
   }
 
