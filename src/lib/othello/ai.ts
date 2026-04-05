@@ -185,15 +185,21 @@ function minimax(
   }
 }
 
+export interface HardMoveResult {
+  move: Position;
+  depth: number;
+}
+
 export function chooseHardMove(
   game: GameState,
   config: AIConfig = { maxDepth: Infinity, maxTime: 3000 },
-): Position {
+): HardMoveResult {
   const moves = getValidMoves(game.board, game.currentColor);
   const deadline = Date.now() + config.maxTime;
   const maxDepth = Math.min(config.maxDepth, 64);
 
   let bestMove = moves[0];
+  let reachedDepth = 0;
 
   // 制限時間内で最善手の精度を段階的に上げる
   for (let depth = 1; depth <= maxDepth; depth++) {
@@ -219,8 +225,9 @@ export function chooseHardMove(
 
     if (completed) {
       bestMove = depthBestMove;
+      reachedDepth = depth;
     }
   }
 
-  return bestMove;
+  return { move: bestMove, depth: reachedDepth };
 }

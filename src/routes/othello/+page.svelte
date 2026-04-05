@@ -9,7 +9,7 @@
     opponent,
     passMove,
   } from '$lib/othello/logic';
-  import { chooseRandomMove, chooseNormalMove, chooseHardMove } from '$lib/othello/ai';
+  import { chooseRandomMove, chooseNormalMove, chooseHardMove, evaluate } from '$lib/othello/ai';
   import type { Color, Difficulty, GameMode, Position } from '$lib/othello/types';
 
   const colorLabel: Record<Color, string> = { black: '黒', white: '白' };
@@ -20,6 +20,7 @@
   let aiDifficultyWhite: Difficulty = $state('normal');
   let playerColor: Color = $state('black');
   let aiMaxTimeSec = $state(3);
+  let lastSearchDepth = $state(0);
   let game = $state(createGame());
   let aiThinking = $state(false);
   let aiTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -32,6 +33,15 @@
   let flippedSet = $derived(new Set(game.flipped.map(([r, c]) => r * 8 + c)));
   let score = $derived(getScore(game.board));
   let winner = $derived(game.gameOver ? getWinner(game.board) : null);
+
+  let blackAdvantage = $derived(
+    Math.round(100 / (1 + Math.exp(-evaluate(game.board, 'black') / 100))),
+  );
+  let hasHardAI = $derived.by(() => {
+    if (gameMode === 'pve') return aiDifficulty === 'hard';
+    if (gameMode === 'eve') return aiDifficultyBlack === 'hard' || aiDifficultyWhite === 'hard';
+    return false;
+  });
 
   let message = $derived.by(() => {
     if (game.gameOver) {
@@ -82,8 +92,11 @@
         return chooseRandomMove(game);
       case 'normal':
         return chooseNormalMove(game);
-      case 'hard':
-        return chooseHardMove(game, { maxDepth: Infinity, maxTime: aiMaxTimeSec * 1000 });
+      case 'hard': {
+        const result = chooseHardMove(game, { maxDepth: Infinity, maxTime: aiMaxTimeSec * 1000 });
+        lastSearchDepth = result.depth;
+        return result.move;
+      }
     }
   }
 
@@ -324,6 +337,18 @@
         <span class="text-[var(--c-score-text)]">{score.white}</span>
       </div>
     </div>
+    <div class="advantage-bar mt-1.5">
+      <div class="advantage-black" style="width: {blackAdvantage}%">
+        {#if blackAdvantage >= 15}
+          <span>{blackAdvantage}%</span>
+        {/if}
+      </div>
+      <div class="advantage-white" style="width: {100 - blackAdvantage}%">
+        {#if blackAdvantage <= 85}
+          <span>{100 - blackAdvantage}%</span>
+        {/if}
+      </div>
+    </div>
   </div>
 
   <div class="board">
@@ -352,6 +377,8 @@
 
   {#if aiThinking}
     <div class="mt-2 animate-pulse text-center text-sm text-gray-500">AI思考中...</div>
+  {:else if lastSearchDepth > 0 && hasHardAI}
+    <div class="mt-2 text-center text-xs text-gray-400">{lastSearchDepth}手先まで読みました</div>
   {/if}
 
   {#if message}
@@ -377,6 +404,35 @@
     --c-disc-black-hi: #555;
     --c-disc-white-lo: #ccc;
     --c-disc-black: #333;
+  }
+
+  .advantage-bar {
+    display: flex;
+    height: 20px;
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  .advantage-black {
+    background: var(--c-disc-black);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 4px;
+    transition: width 0.3s ease;
+  }
+
+  .advantage-white {
+    background: #eee;
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 4px;
+    transition: width 0.3s ease;
   }
 
   .board {

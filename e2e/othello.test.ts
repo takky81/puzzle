@@ -207,6 +207,28 @@ test.describe('オセロ', () => {
     });
   });
 
+  test('優勢バーが表示される', async ({ page }) => {
+    const bar = page.locator('.advantage-bar');
+    await expect(bar).toBeVisible();
+
+    // 初期状態は50%ずつ
+    await expect(page.locator('.advantage-black')).toBeVisible();
+    await expect(page.locator('.advantage-white')).toBeVisible();
+  });
+
+  test('石を置くと優勢バーが変化する', async ({ page }) => {
+    const blackBar = page.locator('.advantage-black');
+    const initialWidth = await blackBar.getAttribute('style');
+
+    await page.locator('.hint').first().locator('..').click();
+
+    // 石を置いた後、バーの幅が変わる
+    await expect(async () => {
+      const newWidth = await blackBar.getAttribute('style');
+      expect(newWidth).not.toBe(initialWidth);
+    }).toPass({ timeout: 3000 });
+  });
+
   test('対AIモードで強いを選ぶと思考時間設定が表示される', async ({ page }) => {
     await page.locator('button', { hasText: '対AI' }).click();
     await expect(page.getByText('思考時間:')).not.toBeVisible();

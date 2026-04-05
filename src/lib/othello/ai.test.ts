@@ -174,13 +174,13 @@ describe('オセロ AI', () => {
         lastMove: null,
         flipped: [],
       };
-      const move = chooseHardMove(game, { maxDepth: 3, maxTime: 3000 });
+      const { move } = chooseHardMove(game, { maxDepth: 3, maxTime: 3000 });
       expect(move).toEqual([0, 0]);
     });
 
     test('1手先読みで最善手を返す', () => {
       const game = createGame();
-      const move = chooseHardMove(game, { maxDepth: 1, maxTime: 3000 });
+      const { move } = chooseHardMove(game, { maxDepth: 1, maxTime: 3000 });
       const validMoves = getValidMoves(game.board, game.currentColor);
       expect(validMoves).toContainEqual(move);
     });
@@ -189,7 +189,7 @@ describe('オセロ AI', () => {
       // ミニマックスの基本性質: 合法手を返すことを確認
       const game = createGame();
       const result = placeStone(game, 2, 3)!;
-      const move = chooseHardMove(result, { maxDepth: 2, maxTime: 3000 });
+      const { move } = chooseHardMove(result, { maxDepth: 2, maxTime: 3000 });
       const validMoves = getValidMoves(result.board, result.currentColor);
       expect(validMoves).toContainEqual(move);
     });
@@ -197,7 +197,7 @@ describe('オセロ AI', () => {
     test('複合評価: 位置の重み + 確定石 + 着手可能数', () => {
       // ミニマックスが合法手の中から選ぶことを確認
       const game = createGame();
-      const move = chooseHardMove(game, { maxDepth: 3, maxTime: 3000 });
+      const { move } = chooseHardMove(game, { maxDepth: 3, maxTime: 3000 });
       const validMoves = getValidMoves(game.board, game.currentColor);
       expect(validMoves).toContainEqual(move);
     });
@@ -221,7 +221,7 @@ describe('オセロ AI', () => {
       };
       const moves = getValidMoves(board, 'black');
       if (moves.length > 0) {
-        const move = chooseHardMove(game, { maxDepth: 10, maxTime: 3000 });
+        const { move } = chooseHardMove(game, { maxDepth: 10, maxTime: 3000 });
         expect(moves).toContainEqual(move);
       }
     });
@@ -229,16 +229,29 @@ describe('オセロ AI', () => {
     test('探索が最大深さで打ち切られる', () => {
       const game = createGame();
       // 深さ1でも結果を返す
-      const move = chooseHardMove(game, { maxDepth: 1, maxTime: 3000 });
-      expect(move).not.toBeNull();
+      const result = chooseHardMove(game, { maxDepth: 1, maxTime: 3000 });
+      expect(result.move).not.toBeNull();
+    });
+
+    test('到達した探索深さが返される', () => {
+      const game = createGame();
+      const result = chooseHardMove(game, { maxDepth: 3, maxTime: 3000 });
+      expect(result.depth).toBe(3);
+    });
+
+    test('時間制限で打ち切られた場合は完了した最大深さが返される', () => {
+      const game = createGame();
+      const result = chooseHardMove(game, { maxDepth: 100, maxTime: 50 });
+      expect(result.depth).toBeGreaterThanOrEqual(1);
+      expect(result.depth).toBeLessThan(100);
     });
 
     test('探索が最大時間で打ち切られる', () => {
       const game = createGame();
       const start = Date.now();
-      const move = chooseHardMove(game, { maxDepth: 100, maxTime: 100 });
+      const result = chooseHardMove(game, { maxDepth: 100, maxTime: 100 });
       const elapsed = Date.now() - start;
-      expect(move).not.toBeNull();
+      expect(result.move).not.toBeNull();
       // 100ms + マージンで完了すること
       expect(elapsed).toBeLessThan(500);
     });
@@ -255,7 +268,7 @@ describe('オセロ AI', () => {
         }
         const move =
           game.currentColor === hardColor
-            ? chooseHardMove(game, { maxDepth: 6, maxTime: 500 })
+            ? chooseHardMove(game, { maxDepth: 6, maxTime: 500 }).move
             : chooseNormalMove(game);
         const result = placeStone(game, move[0], move[1]);
         if (result) game = result;
