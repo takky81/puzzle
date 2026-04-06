@@ -3,25 +3,34 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 /** 隣接するpathセル2つを見つけてドラッグし、両セルのLocatorを返す */
 async function dragBetweenAdjacentCells(page: Page): Promise<{ from: Locator; to: Locator }> {
   const cells = page.locator('.cell:not(.wall)');
-  const firstCell = cells.first();
-  const firstBox = await firstCell.boundingBox();
-  expect(firstBox).toBeTruthy();
+  const count = await cells.count();
+  let fromCell: Locator | null = null;
+  let toCell: Locator | null = null;
 
-  const row = Number(await firstCell.getAttribute('data-row'));
-  const col = Number(await firstCell.getAttribute('data-col'));
-  const rightCell = page.locator(`[data-row="${row}"][data-col="${col + 1}"]:not(.wall)`);
-  expect(await rightCell.count()).toBeGreaterThan(0);
-  const rightBox = await rightCell.boundingBox();
-  expect(rightBox).toBeTruthy();
+  for (let i = 0; i < count; i++) {
+    const c = cells.nth(i);
+    const row = Number(await c.getAttribute('data-row'));
+    const col = Number(await c.getAttribute('data-col'));
+    const right = page.locator(`[data-row="${row}"][data-col="${col + 1}"]:not(.wall)`);
+    if ((await right.count()) > 0) {
+      fromCell = c;
+      toCell = right;
+      break;
+    }
+  }
 
-  await page.mouse.move(firstBox!.x + firstBox!.width / 2, firstBox!.y + firstBox!.height / 2);
+  expect(fromCell).not.toBeNull();
+  const fromBox = await fromCell!.boundingBox();
+  const toBox = await toCell!.boundingBox();
+  expect(fromBox).toBeTruthy();
+  expect(toBox).toBeTruthy();
+
+  await page.mouse.move(fromBox!.x + fromBox!.width / 2, fromBox!.y + fromBox!.height / 2);
   await page.mouse.down();
-  await page.mouse.move(rightBox!.x + rightBox!.width / 2, rightBox!.y + rightBox!.height / 2, {
-    steps: 5,
-  });
+  await page.mouse.move(toBox!.x + toBox!.width / 2, toBox!.y + toBox!.height / 2, { steps: 5 });
   await page.mouse.up();
 
-  return { from: firstCell, to: rightCell };
+  return { from: fromCell!, to: toCell! };
 }
 
 test.describe('一筆書きパズル', () => {
@@ -165,24 +174,36 @@ test.describe('一筆書きパズル', () => {
   });
 
   test('3マス以上の連続ドラッグでエッジが複数追加される', async ({ page }) => {
+    // 横方向に3マス連続するパスセルを探す
     const cells = page.locator('.cell:not(.wall)');
-    const firstCell = cells.first();
-    const firstBox = await firstCell.boundingBox();
-    expect(firstBox).toBeTruthy();
+    const count = await cells.count();
+    let cell1: Locator | null = null;
+    let cell2: Locator | null = null;
+    let cell3: Locator | null = null;
 
-    const row = Number(await firstCell.getAttribute('data-row'));
-    const col = Number(await firstCell.getAttribute('data-col'));
+    for (let i = 0; i < count; i++) {
+      const c = cells.nth(i);
+      const row = Number(await c.getAttribute('data-row'));
+      const col = Number(await c.getAttribute('data-col'));
+      const right1 = page.locator(`[data-row="${row}"][data-col="${col + 1}"]:not(.wall)`);
+      const right2 = page.locator(`[data-row="${row}"][data-col="${col + 2}"]:not(.wall)`);
+      if ((await right1.count()) > 0 && (await right2.count()) > 0) {
+        cell1 = c;
+        cell2 = right1;
+        cell3 = right2;
+        break;
+      }
+    }
 
-    const cell2 = page.locator(`[data-row="${row}"][data-col="${col + 1}"]:not(.wall)`);
-    const cell3 = page.locator(`[data-row="${row}"][data-col="${col + 2}"]:not(.wall)`);
-    expect(await cell2.count()).toBeGreaterThan(0);
-    expect(await cell3.count()).toBeGreaterThan(0);
-    const box2 = await cell2.boundingBox();
-    const box3 = await cell3.boundingBox();
+    expect(cell1).not.toBeNull();
+    const box1 = await cell1!.boundingBox();
+    const box2 = await cell2!.boundingBox();
+    const box3 = await cell3!.boundingBox();
+    expect(box1).toBeTruthy();
     expect(box2).toBeTruthy();
     expect(box3).toBeTruthy();
 
-    await page.mouse.move(firstBox!.x + firstBox!.width / 2, firstBox!.y + firstBox!.height / 2);
+    await page.mouse.move(box1!.x + box1!.width / 2, box1!.y + box1!.height / 2);
     await page.mouse.down();
     await page.mouse.move(box2!.x + box2!.width / 2, box2!.y + box2!.height / 2, { steps: 5 });
     await page.mouse.move(box3!.x + box3!.width / 2, box3!.y + box3!.height / 2, { steps: 5 });
