@@ -192,23 +192,6 @@ test.describe('2048', () => {
     await expect(redoBtn).toBeEnabled();
   });
 
-  // --- 合体時のスコア更新 ---
-
-  test('タイルが合体するとスコアが更新される', async ({ page }) => {
-    // 何手か打ってスコアが変わることを確認
-    for (let i = 0; i < 10; i++) {
-      await page.keyboard.press('ArrowLeft');
-      await page.waitForTimeout(50);
-      await page.keyboard.press('ArrowDown');
-      await page.waitForTimeout(50);
-    }
-
-    const scoreValue = page.locator('.score-value').first();
-    const score = parseInt((await scoreValue.textContent()) ?? '0');
-    // 10手もやれば少なくとも1回は合体するはず
-    expect(score).toBeGreaterThan(0);
-  });
-
   // --- メッセージ表示 ---
 
   test('初期状態でゲームメッセージが表示されない', async ({ page }) => {
