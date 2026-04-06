@@ -194,6 +194,17 @@ export function chooseHardMove(
   game: GameState,
   config: AIConfig = { maxDepth: Infinity, maxTime: 3000 },
 ): HardMoveResult {
+  return chooseMinimaxMove(game, config, game.currentColor);
+}
+
+export function chooseWeakestMove(
+  game: GameState,
+  config: AIConfig = { maxDepth: Infinity, maxTime: 3000 },
+): HardMoveResult {
+  return chooseMinimaxMove(game, config, opponent(game.currentColor));
+}
+
+function chooseMinimaxMove(game: GameState, config: AIConfig, aiColor: Color): HardMoveResult {
   const moves = getValidMoves(game.board, game.currentColor);
   const deadline = Date.now() + config.maxTime;
   const maxDepth = Math.min(config.maxDepth, 64);
@@ -201,7 +212,6 @@ export function chooseHardMove(
   let bestMove = moves[0];
   let reachedDepth = 0;
 
-  // 制限時間内で最善手の精度を段階的に上げる
   for (let depth = 1; depth <= maxDepth; depth++) {
     if (Date.now() >= deadline) break;
 
@@ -216,7 +226,7 @@ export function chooseHardMove(
       }
       const next = placeStone(game, r, c);
       if (!next) continue;
-      const score = minimax(next, depth - 1, depthBestScore, Infinity, game.currentColor, deadline);
+      const score = minimax(next, depth - 1, depthBestScore, Infinity, aiColor, deadline);
       if (score > depthBestScore) {
         depthBestScore = score;
         depthBestMove = [r, c];

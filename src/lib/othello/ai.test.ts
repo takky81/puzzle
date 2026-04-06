@@ -3,12 +3,13 @@ import {
   chooseRandomMove,
   chooseNormalMove,
   chooseHardMove,
+  chooseWeakestMove,
   evaluatePosition,
   countStableDiscs,
   evaluate,
 } from './ai';
 import { createGame, getValidMoves, getWinner, passMove, placeStone } from './logic';
-import type { Board, GameState } from './types';
+import type { Board, GameState, Position } from './types';
 
 function emptyBoard(): Board {
   return Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
@@ -257,34 +258,94 @@ describe('オセロ AI', () => {
     });
   });
 
-  describe('minimaxのパス時maximizing判定', () => {
-    function playGame(hardColor: 'black' | 'white'): GameState {
-      let game = createGame();
-      while (!game.gameOver) {
-        const moves = getValidMoves(game.board, game.currentColor);
-        if (moves.length === 0) {
-          game = passMove(game);
-          continue;
-        }
-        const move =
-          game.currentColor === hardColor
-            ? chooseHardMove(game, { maxDepth: 6, maxTime: 500 }).move
-            : chooseNormalMove(game);
-        const result = placeStone(game, move[0], move[1]);
-        if (result) game = result;
+  function playGame(
+    blackFn: (g: GameState) => Position,
+    whiteFn: (g: GameState) => Position,
+  ): GameState {
+    let game = createGame();
+    while (!game.gameOver) {
+      const moves = getValidMoves(game.board, game.currentColor);
+      if (moves.length === 0) {
+        game = passMove(game);
+        continue;
       }
-      return game;
+      const move = game.currentColor === 'black' ? blackFn(game) : whiteFn(game);
+      const result = placeStone(game, move[0], move[1]);
+      if (result) game = result;
     }
+    return game;
+  }
 
+  const hardMoveFn = (g: GameState): Position =>
+    chooseHardMove(g, { maxDepth: 6, maxTime: 500 }).move;
+  const weakestMoveFn = (g: GameState): Position =>
+    chooseWeakestMove(g, { maxDepth: 6, maxTime: 500 }).move;
+  const normalMoveFn = (g: GameState): Position => chooseNormalMove(g);
+  const randomMoveFn = (g: GameState): Position => chooseRandomMove(g);
+
+  describe('minimaxのパス時maximizing判定', () => {
     test('強いAI(黒)は普通のAI(白)に勝つ', () => {
-      const game = playGame('black');
+      const game = playGame(hardMoveFn, normalMoveFn);
       expect(getWinner(game.board)).toBe('black');
     }, 30000);
 
     test('普通のAI(黒) vs 強いAI(白)でも強いAIが勝つ', () => {
-      const game = playGame('white');
+      const game = playGame(normalMoveFn, hardMoveFn);
       expect(getWinner(game.board)).toBe('white');
     }, 30000);
+  });
+
+  describe('最弱AI（逆ミニマックス）', () => {
+    test('合法手の中から1つを返す', () => {
+      const game = createGame();
+      const { move } = chooseWeakestMove(game, { maxDepth: 3, maxTime: 3000 });
+      const validMoves = getValidMoves(game.board, game.currentColor);
+      expect(validMoves).toContainEqual(move);
+    });
+
+    test('到達した探索深さが返される', () => {
+      const game = createGame();
+      const result = chooseWeakestMove(game, { maxDepth: 3, maxTime: 3000 });
+      expect(result.depth).toBe(3);
+    });
+
+    test('強いAIと異なる手を選ぶ（先読みの逆転）', () => {
+      // 初期盤面から8手進めて選択肢が複数ある状態にする
+      let game = createGame();
+      const sequence: Position[] = [
+        [2, 3],
+        [2, 2],
+        [3, 2],
+        [2, 4],
+        [1, 3],
+        [0, 2],
+        [0, 3],
+        [0, 4],
+      ];
+      for (const [r, c] of sequence) {
+        game = placeStone(game, r, c)!;
+      }
+
+      const config = { maxDepth: 4, maxTime: 3000 };
+      const { move: hardMove } = chooseHardMove(game, config);
+      const { move: weakestMove } = chooseWeakestMove(game, config);
+      // 同じ深さで先読みした結果、真逆の判断になる
+      expect(weakestMove).not.toEqual(hardMove);
+    });
+
+    test('最弱AI(黒) vs 弱いAI(白)で最弱AIが勝たない（3回）', () => {
+      for (let i = 0; i < 3; i++) {
+        const game = playGame(weakestMoveFn, randomMoveFn);
+        expect(getWinner(game.board)).not.toBe('black');
+      }
+    }, 60000);
+
+    test('弱いAI(黒) vs 最弱AI(白)でも最弱AIが勝たない（3回）', () => {
+      for (let i = 0; i < 3; i++) {
+        const game = playGame(randomMoveFn, weakestMoveFn);
+        expect(getWinner(game.board)).not.toBe('white');
+      }
+    }, 60000);
   });
 
   describe('確定石の計算', () => {

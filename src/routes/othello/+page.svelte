@@ -8,7 +8,13 @@
     opponent,
     passMove,
   } from '$lib/othello/logic';
-  import { chooseRandomMove, chooseNormalMove, chooseHardMove, evaluate } from '$lib/othello/ai';
+  import {
+    chooseRandomMove,
+    chooseNormalMove,
+    chooseHardMove,
+    chooseWeakestMove,
+    evaluate,
+  } from '$lib/othello/ai';
   import type { Color, Difficulty, GameMode, Position } from '$lib/othello/types';
 
   const colorLabel: Record<Color, string> = { black: '黒', white: '白' };
@@ -36,9 +42,14 @@
   let blackAdvantage = $derived(
     Math.round(100 / (1 + Math.exp(-evaluate(game.board, 'black') / 100))),
   );
+  const minimaxDifficulties: Difficulty[] = ['hard', 'weakest'];
   let hasHardAI = $derived.by(() => {
-    if (gameMode === 'pve') return aiDifficulty === 'hard';
-    if (gameMode === 'eve') return aiDifficultyBlack === 'hard' || aiDifficultyWhite === 'hard';
+    if (gameMode === 'pve') return minimaxDifficulties.includes(aiDifficulty);
+    if (gameMode === 'eve')
+      return (
+        minimaxDifficulties.includes(aiDifficultyBlack) ||
+        minimaxDifficulties.includes(aiDifficultyWhite)
+      );
     return false;
   });
 
@@ -87,6 +98,14 @@
     const moves = getValidMoves(game.board, game.currentColor);
     if (moves.length === 0) return null;
     switch (difficulty) {
+      case 'weakest': {
+        const result = chooseWeakestMove(game, {
+          maxDepth: Infinity,
+          maxTime: aiMaxTimeSec * 1000,
+        });
+        lastSearchDepth = result.depth;
+        return result.move;
+      }
       case 'easy':
         return chooseRandomMove(game);
       case 'normal':
@@ -187,6 +206,7 @@
   });
 
   const difficulties: { value: Difficulty; label: string }[] = [
+    { value: 'weakest', label: '最弱' },
     { value: 'easy', label: '弱い' },
     { value: 'normal', label: '普通' },
     { value: 'hard', label: '強い' },

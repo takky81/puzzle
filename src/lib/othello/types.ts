@@ -6,7 +6,7 @@ export type Board = CellState[][];
 
 export type Position = [number, number];
 
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Difficulty = 'weakest' | 'easy' | 'normal' | 'hard';
 
 export type GameMode = 'pvp' | 'pve' | 'eve';
 
