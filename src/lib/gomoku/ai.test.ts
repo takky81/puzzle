@@ -97,6 +97,55 @@ describe('五目並べ AI', () => {
       expect(score).toBeGreaterThan(1000);
     });
 
+    test('斜め方向のパターンも正しく評価される', () => {
+      // 横3連
+      const bH = emptyBoard();
+      bH[7][3] = 'black';
+      bH[7][4] = 'black';
+      bH[7][5] = 'black';
+      const scoreH = evaluate(bH, 'black');
+
+      // 右下がり斜め3連
+      const bD1 = emptyBoard();
+      bD1[3][3] = 'black';
+      bD1[4][4] = 'black';
+      bD1[5][5] = 'black';
+      const scoreD1 = evaluate(bD1, 'black');
+
+      // 左下がり斜め3連
+      const bD2 = emptyBoard();
+      bD2[3][7] = 'black';
+      bD2[4][6] = 'black';
+      bD2[5][5] = 'black';
+      const scoreD2 = evaluate(bD2, 'black');
+
+      // 全て同じスコアになるはず（同じパターン）
+      expect(scoreD1).toBe(scoreH);
+      expect(scoreD2).toBe(scoreH);
+    });
+
+    test('斜めギャップパターンも検出される', () => {
+      // 右下がり xx.xx: (3,3),(4,4),_,(6,6),(7,7)
+      const bG1 = emptyBoard();
+      bG1[3][3] = 'black';
+      bG1[4][4] = 'black';
+      bG1[6][6] = 'black';
+      bG1[7][7] = 'black';
+      const scoreG1 = evaluate(bG1, 'black');
+
+      // 横 xx.xx: (7,3),(7,4),_,(7,6),(7,7)
+      const bGH = emptyBoard();
+      bGH[7][3] = 'black';
+      bGH[7][4] = 'black';
+      bGH[7][6] = 'black';
+      bGH[7][7] = 'black';
+      const scoreGH = evaluate(bGH, 'black');
+
+      // 両方ともギャップ4として検出されるべき
+      expect(scoreG1).toBeGreaterThan(1000);
+      expect(scoreG1).toBe(scoreGH);
+    });
+
     test('自分の石が多いほど高評価', () => {
       const board1 = emptyBoard();
       board1[7][7] = 'black';
