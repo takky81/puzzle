@@ -15,6 +15,12 @@
       description: '数字タイルをスライドして2048を目指すパズル',
     },
     {
+      name: '五目並べ',
+      path: '/gomoku',
+      emoji: '⚫',
+      description: '先に5つ並べた方が勝ちのボードゲーム',
+    },
+    {
       name: '一筆書き',
       path: '/one-stroke',
       emoji: '✏️',

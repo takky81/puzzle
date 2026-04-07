@@ -22,6 +22,12 @@ src/
       logic.ts
       logic.test.ts
       types.ts
+    gomoku/
+      logic.ts          ← ゲームロジック（勝利判定・禁じ手）
+      logic.test.ts
+      ai.ts             ← AI（評価関数・ミニマックス）
+      ai.test.ts
+      types.ts
     one-stroke/
       logic.ts
       logic.test.ts
@@ -36,6 +42,9 @@ src/
     +page.svelte        ← トップページ（ゲーム一覧）
     othello/
       +page.svelte      ← オセロのUI
+      SPEC.md
+    gomoku/
+      +page.svelte      ← 五目並べのUI
       SPEC.md
     game2048/
       +page.svelte      ← 2048のUI
