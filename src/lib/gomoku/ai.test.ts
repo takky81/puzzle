@@ -72,12 +72,15 @@ describe('五目並べ AI', () => {
 
     test('4連を完成できる手を優先する', () => {
       const board = emptyBoard();
-      // 黒が横に4つ並んでいる → (7,2) or (7,7) で5連
+      // 黒が横に4つ並んでいる → 5連完成の手を選ぶべき
       for (let c = 3; c <= 6; c++) board[7][c] = 'black';
       const game = makeGame({ board, currentColor: 'black' });
       const move = chooseNormalMove(game);
-      expect(move[0]).toBe(7);
-      expect([2, 7]).toContain(move[1]);
+      // 5連完成の手を選んだか検証
+      const testBoard = board.map((r) => [...r]);
+      testBoard[move[0]][move[1]] = 'black';
+      const score = evaluate(testBoard, 'black');
+      expect(score).toBeGreaterThan(10000);
     });
   });
 

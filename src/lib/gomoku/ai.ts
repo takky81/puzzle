@@ -48,16 +48,16 @@ export function getCandidateMoves(game: GameState): Position[] {
 
 // --- 評価関数 ---
 
-// パターンスコア — 活三は次手で活四（ほぼ必勝）になるため高評価
-const SCORE_FIVE = 100000;
-const SCORE_OPEN_FOUR = 50000;
-const SCORE_BROKEN_FOUR = 10000;
-const SCORE_FOUR = 10000;
-const SCORE_OPEN_THREE = 10000;
-const SCORE_BROKEN_THREE = 1000;
-const SCORE_THREE = 200;
-const SCORE_OPEN_TWO = 100;
-const SCORE_TWO = 10;
+// パターンスコア（CMA-ESで最適化済み）
+const SCORE_FIVE = 74456;
+const SCORE_OPEN_FOUR = 52097;
+const SCORE_BROKEN_FOUR = 10435;
+const SCORE_FOUR = 6433;
+const SCORE_OPEN_THREE = 34227;
+const SCORE_BROKEN_THREE = 720;
+const SCORE_THREE = 275;
+const SCORE_OPEN_TWO = 297;
+const SCORE_TWO = 9;
 
 function evaluateColor(board: Board, color: Color): number {
   let score = 0;
@@ -173,7 +173,7 @@ function evaluateColor(board: Board, color: Color): number {
   return score;
 }
 
-const DEFENSE_MULTIPLIER = 1.2;
+const DEFENSE_MULTIPLIER = 1.55;
 
 export function evaluate(board: Board, color: Color): number {
   return evaluateColor(board, color) - DEFENSE_MULTIPLIER * evaluateColor(board, opponent(color));
