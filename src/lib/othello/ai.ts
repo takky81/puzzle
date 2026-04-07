@@ -128,6 +128,11 @@ export function evaluate(board: Board, color: Color): number {
   return posScore + stableScore + mobilityScore;
 }
 
+function evalWithInversion(board: Board, aiColor: Color, invertEval: boolean): number {
+  const score = evaluate(board, aiColor);
+  return invertEval ? -score : score;
+}
+
 function minimax(
   game: GameState,
   depth: number,
@@ -135,9 +140,10 @@ function minimax(
   beta: number,
   aiColor: Color,
   deadline: number,
+  invertEval = false,
 ): number {
   if (depth === 0 || game.gameOver || Date.now() >= deadline) {
-    return evaluate(game.board, aiColor);
+    return evalWithInversion(game.board, aiColor, invertEval);
   }
 
   const moves = getValidMoves(game.board, game.currentColor);
@@ -151,9 +157,9 @@ function minimax(
     };
     const oppMoves = getValidMoves(passedGame.board, passedGame.currentColor);
     if (oppMoves.length === 0) {
-      return evaluate(game.board, aiColor);
+      return evalWithInversion(game.board, aiColor, invertEval);
     }
-    return minimax(passedGame, depth - 1, alpha, beta, aiColor, deadline);
+    return minimax(passedGame, depth - 1, alpha, beta, aiColor, deadline, invertEval);
   }
 
   const maximizing = game.currentColor === aiColor;
@@ -164,7 +170,7 @@ function minimax(
       if (Date.now() >= deadline) break;
       const next = placeStone(game, r, c);
       if (!next) continue;
-      const val = minimax(next, depth - 1, alpha, beta, aiColor, deadline);
+      const val = minimax(next, depth - 1, alpha, beta, aiColor, deadline, invertEval);
       maxEval = Math.max(maxEval, val);
       alpha = Math.max(alpha, val);
       if (beta <= alpha) break;
@@ -176,7 +182,7 @@ function minimax(
       if (Date.now() >= deadline) break;
       const next = placeStone(game, r, c);
       if (!next) continue;
-      const val = minimax(next, depth - 1, alpha, beta, aiColor, deadline);
+      const val = minimax(next, depth - 1, alpha, beta, aiColor, deadline, invertEval);
       minEval = Math.min(minEval, val);
       beta = Math.min(beta, val);
       if (beta <= alpha) break;
@@ -194,17 +200,22 @@ export function chooseHardMove(
   game: GameState,
   config: AIConfig = { maxDepth: Infinity, maxTime: 3000 },
 ): HardMoveResult {
-  return chooseMinimaxMove(game, config, game.currentColor);
+  return chooseMinimaxMove(game, config, game.currentColor, false);
 }
 
 export function chooseWeakestMove(
   game: GameState,
   config: AIConfig = { maxDepth: Infinity, maxTime: 3000 },
 ): HardMoveResult {
-  return chooseMinimaxMove(game, config, opponent(game.currentColor));
+  return chooseMinimaxMove(game, config, game.currentColor, true);
 }
 
-function chooseMinimaxMove(game: GameState, config: AIConfig, aiColor: Color): HardMoveResult {
+function chooseMinimaxMove(
+  game: GameState,
+  config: AIConfig,
+  aiColor: Color,
+  invertEval: boolean,
+): HardMoveResult {
   const moves = getValidMoves(game.board, game.currentColor);
   const deadline = Date.now() + config.maxTime;
   const maxDepth = Math.min(config.maxDepth, 64);
@@ -226,7 +237,15 @@ function chooseMinimaxMove(game: GameState, config: AIConfig, aiColor: Color): H
       }
       const next = placeStone(game, r, c);
       if (!next) continue;
-      const score = minimax(next, depth - 1, depthBestScore, Infinity, aiColor, deadline);
+      const score = minimax(
+        next,
+        depth - 1,
+        depthBestScore,
+        Infinity,
+        aiColor,
+        deadline,
+        invertEval,
+      );
       if (score > depthBestScore) {
         depthBestScore = score;
         depthBestMove = [r, c];
