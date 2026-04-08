@@ -27,6 +27,6 @@ export interface HardMoveResult {
   depth: number;
 }
 
-export type Difficulty = 'weakest' | 'easy' | 'normal' | 'hard';
+export type Difficulty = 'weakest' | 'easy' | 'normal' | 'hard' | 'strongest';
 
 export type GameMode = 'pvp' | 'pve' | 'eve';

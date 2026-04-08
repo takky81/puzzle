@@ -8,8 +8,21 @@
     evaluate,
     getCandidateMoves,
   } from '$lib/gomoku/ai';
+  import { chooseNNMove, parseNNWeights, type NNWeights } from '$lib/gomoku/nn';
   import type { Color, Difficulty, GameMode, Position } from '$lib/gomoku/types';
   import { BOARD_SIZE } from '$lib/gomoku/types';
+
+  let nnWeights: NNWeights | null = $state(null);
+  let nnLoading = $state(false);
+
+  async function loadNNWeights(): Promise<NNWeights> {
+    if (nnWeights) return nnWeights;
+    nnLoading = true;
+    const json = await import('$lib/gomoku/nn_weights.json');
+    nnWeights = parseNNWeights(json.default);
+    nnLoading = false;
+    return nnWeights;
+  }
 
   const colorLabel: Record<Color, string> = { black: '黒', white: '白' };
 
@@ -77,7 +90,7 @@
     }
   }
 
-  function chooseMove(difficulty: Difficulty): Position | null {
+  async function chooseMove(difficulty: Difficulty): Promise<Position | null> {
     const moves = getCandidateMoves(game);
     if (moves.length === 0) return null;
     switch (difficulty) {
@@ -98,6 +111,10 @@
         lastSearchDepth = result.depth;
         return result.move;
       }
+      case 'strongest': {
+        const weights = await loadNNWeights();
+        return chooseNNMove(weights, game);
+      }
     }
   }
 
@@ -105,12 +122,12 @@
     if (game.gameOver) return;
     aiThinking = true;
     if (aiTimeout) clearTimeout(aiTimeout);
-    aiTimeout = setTimeout(() => {
+    aiTimeout = setTimeout(async () => {
       if (game.gameOver) {
         aiThinking = false;
         return;
       }
-      const move = chooseMove(aiDifficulty);
+      const move = await chooseMove(aiDifficulty);
       if (move) {
         const result = placeStone(game, move[0], move[1]);
         if (result) {
@@ -159,13 +176,13 @@
   }
 
   function scheduleEveTurn() {
-    eveTimeout = setTimeout(() => {
+    eveTimeout = setTimeout(async () => {
       if (game.gameOver) {
         stopEve();
         return;
       }
       const diff = game.currentColor === 'black' ? aiDifficultyBlack : aiDifficultyWhite;
-      const move = chooseMove(diff);
+      const move = await chooseMove(diff);
       if (move) {
         const result = placeStone(game, move[0], move[1]);
         if (result) game = result;
@@ -201,6 +218,7 @@
     { value: 'easy', label: '弱い' },
     { value: 'normal', label: '普通' },
     { value: 'hard', label: '強い' },
+    { value: 'strongest', label: '最強' },
   ];
 
   const modes: { value: GameMode; label: string }[] = [
@@ -388,7 +406,9 @@
     {/each}
   </div>
 
-  {#if aiThinking}
+  {#if nnLoading}
+    <div class="mt-2 animate-pulse text-center text-sm text-gray-500">NNモデル読み込み中...</div>
+  {:else if aiThinking}
     <div class="mt-2 animate-pulse text-center text-sm text-gray-500">AI思考中...</div>
   {:else if lastSearchDepth > 0 && hasHardAI}
     <div class="mt-2 text-center text-xs text-gray-400">{lastSearchDepth}手先まで読みました</div>
