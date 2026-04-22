@@ -330,10 +330,10 @@ fn solve_path(
     let current_id = np.id;
 
     if tip == end_idx {
+        // プレイヤーのクリア条件は「全ペア接続」のみ。被覆は求めない。
+        // 全ペアがつながれば解として1つカウントする。
         if pair_idx + 1 == numbers.len() {
-            if cell_id.iter().all(|&x| x != 0) {
-                *count += 1;
-            }
+            *count += 1;
             return;
         }
         let next_idx = pair_idx + 1;
@@ -491,13 +491,14 @@ mod tests {
     }
 
     #[test]
-    fn count_solutions_2x2_diagonal_pair_no_solution() {
-        // 2×2 の対角ペア: 全セル id 1 で埋めると 2×2 mono 違反 → 0 解
+    fn count_solutions_2x2_diagonal_pair_two_routes() {
+        // 2×2 の対角ペアは (0,1) 経由 と (1,0) 経由の2通り。
+        // 解の条件は全ペア接続のみなので、どちらも有効解。
         let numbers = vec![NumPair {
             id: 1,
             positions: [[0, 0], [1, 1]],
         }];
-        assert_eq!(count_solutions(2, &numbers, 1_000), 0);
+        assert_eq!(count_solutions(2, &numbers, 1_000), 2);
     }
 
     #[test]

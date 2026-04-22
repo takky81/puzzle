@@ -255,13 +255,19 @@
           {@const numberId = numberCellMap.get(cellKey(r, c))}
           {@const ownerId = ownerMap.get(cellKey(r, c))}
           {@const rightEdgeId = edgeMap.get(edgeKey(r, c, r, c + 1))}
+          {@const leftEdgeId = edgeMap.get(edgeKey(r, c - 1, r, c))}
           {@const downEdgeId = edgeMap.get(edgeKey(r, c, r + 1, c))}
+          {@const upEdgeId = edgeMap.get(edgeKey(r - 1, c, r, c))}
           {@const rightSolId = showSolution
             ? solutionEdgeMap.get(edgeKey(r, c, r, c + 1))
+            : undefined}
+          {@const leftSolId = showSolution
+            ? solutionEdgeMap.get(edgeKey(r, c - 1, r, c))
             : undefined}
           {@const downSolId = showSolution
             ? solutionEdgeMap.get(edgeKey(r, c, r + 1, c))
             : undefined}
+          {@const upSolId = showSolution ? solutionEdgeMap.get(edgeKey(r - 1, c, r, c)) : undefined}
           <div
             class="cell"
             class:number-cell={numberId !== undefined}
@@ -279,14 +285,26 @@
             {#if c < gridSize - 1 && rightEdgeId !== undefined}
               <div class="edge edge-right" style:background={colorFor(rightEdgeId)}></div>
             {/if}
+            {#if c > 0 && leftEdgeId !== undefined}
+              <div class="edge edge-left" style:background={colorFor(leftEdgeId)}></div>
+            {/if}
             {#if r < gridSize - 1 && downEdgeId !== undefined}
               <div class="edge edge-down" style:background={colorFor(downEdgeId)}></div>
+            {/if}
+            {#if r > 0 && upEdgeId !== undefined}
+              <div class="edge edge-up" style:background={colorFor(upEdgeId)}></div>
             {/if}
             {#if c < gridSize - 1 && rightSolId !== undefined}
               <div class="solution-edge edge-right" style:background={colorFor(rightSolId)}></div>
             {/if}
+            {#if c > 0 && leftSolId !== undefined}
+              <div class="solution-edge edge-left" style:background={colorFor(leftSolId)}></div>
+            {/if}
             {#if r < gridSize - 1 && downSolId !== undefined}
               <div class="solution-edge edge-down" style:background={colorFor(downSolId)}></div>
+            {/if}
+            {#if r > 0 && upSolId !== undefined}
+              <div class="solution-edge edge-up" style:background={colorFor(upSolId)}></div>
             {/if}
           </div>
         {/each}
@@ -410,19 +428,35 @@
     z-index: 1;
   }
 
-  .edge-right {
+  .edge-right,
+  .edge-left {
     top: 50%;
     transform: translateY(-50%);
     width: calc(50% + 6px);
     height: 4px;
+  }
+
+  .edge-right {
     right: -4px;
   }
 
-  .edge-down {
+  .edge-left {
+    left: -4px;
+  }
+
+  .edge-down,
+  .edge-up {
     left: 50%;
     transform: translateX(-50%);
     width: 4px;
     height: calc(50% + 6px);
+  }
+
+  .edge-down {
     bottom: -4px;
+  }
+
+  .edge-up {
+    top: -4px;
   }
 </style>
