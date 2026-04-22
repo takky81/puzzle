@@ -111,4 +111,19 @@ test.describe('一筆書きパズル', () => {
     await page.locator('.cell').first().waitFor({ timeout: 60000 });
     await expect(page.locator('.cell')).toHaveCount(16);
   });
+
+  test('次のステージボタンは初期状態から有効でクリックするとステージが切り替わる', async ({
+    page,
+  }) => {
+    const nextBtn = page.locator('button', { hasText: '次のステージ' });
+    await expect(nextBtn).toBeEnabled();
+
+    // ドラッグで進捗を付けてから次のステージへ
+    await dragBetweenAdjacentCells(page);
+    const progress = page.locator('text=/\\d+\\/\\d+ マス通過/');
+    await expect(progress).toContainText('2/');
+
+    await nextBtn.click();
+    await expect(progress).toContainText('0/');
+  });
 });

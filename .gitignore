@@ -27,3 +27,5 @@ test-results/
 
 # Claude Code
 .claude/
+
+scripts/**/target/

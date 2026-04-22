@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { base } from '$app/paths';
   import {
     createGame,
     createGrid,
@@ -14,11 +15,13 @@
     posKey,
     edgeKey,
   } from '$lib/one-stroke/logic';
+  import { pickRandomStage, type PuzzleFile } from '$lib/one-stroke/stageLoader';
   import { SvelteSet } from 'svelte/reactivity';
-  import type { Stage, Position } from '$lib/one-stroke/types';
+  import type { Position } from '$lib/one-stroke/types';
 
   let gridSize = $state(6);
   let loading = $state(true);
+  let loadError = $state<string | null>(null);
 
   const emptyGrid = createGrid(6, 6);
   let stage = $state({ grid: emptyGrid, solution: [] as [Position, Position][] });
@@ -26,67 +29,28 @@
   let showSolution = $state(false);
   let isDragging = $state(false);
   let lastCell: Position | null = $state(null);
-  let nextStage: Stage | null = $state(null);
-  let nextAttempt = $state(0);
-  let preparingNext = $state(false);
-  let currentWorker: Worker | null = null;
-  let nextWorker: Worker | null = null;
-  let generatingAttempt = $state(0);
+  let puzzleFile: PuzzleFile | null = null;
 
-  function createWorker(): Worker {
-    return new Worker(new URL('$lib/one-stroke/generator.worker.ts', import.meta.url), {
-      type: 'module',
-    });
-  }
-
-  function generateAsync(
-    rows: number,
-    cols: number,
-    onDone: (s: Stage) => void,
-    onProgress?: (attempt: number) => void,
-  ): Worker {
-    const w = createWorker();
-    w.onmessage = (e) => {
-      const msg = e.data;
-      if (msg?.type === 'progress') {
-        onProgress?.(msg.attempt);
-      } else if (msg?.type === 'done' && msg.stage?.grid) {
-        onDone(msg.stage);
-      }
-    };
-    w.postMessage({ rows, cols });
-    return w;
-  }
-
-  function loadStage() {
+  async function loadStage() {
     loading = true;
-    generatingAttempt = 0;
-    currentWorker?.terminate();
-    nextWorker?.terminate();
-    nextStage = null;
-    preparingNext = false;
-    nextAttempt = 0;
-    currentWorker = generateAsync(
-      gridSize,
-      gridSize,
-      (s) => {
-        stage = s;
-        game = createGame(s.grid, s.solution);
-        loading = false;
-        prepareNextStage();
-      },
-      (attempt) => {
-        generatingAttempt = attempt;
-      },
-    );
+    loadError = null;
+    puzzleFile = null;
+    try {
+      const res = await fetch(`${base}/puzzles/${gridSize}x${gridSize}.json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      puzzleFile = (await res.json()) as PuzzleFile;
+      const s = pickRandomStage(puzzleFile);
+      stage = s;
+      game = createGame(s.grid, s.solution);
+      loading = false;
+    } catch (err) {
+      loadError = err instanceof Error ? err.message : String(err);
+      loading = false;
+    }
   }
 
   onMount(() => {
     loadStage();
-    return () => {
-      currentWorker?.terminate();
-      nextWorker?.terminate();
-    };
   });
 
   let visitedCount = $derived(getVisitedCount(game));
@@ -118,32 +82,12 @@
     return s;
   });
 
-  function prepareNextStage() {
-    nextStage = null;
-    nextAttempt = 0;
-    preparingNext = true;
-    nextWorker?.terminate();
-    nextWorker = generateAsync(
-      gridSize,
-      gridSize,
-      (s) => {
-        nextStage = s;
-        preparingNext = false;
-      },
-      (attempt) => {
-        nextAttempt = attempt;
-      },
-    );
-  }
-
   function showNextStage() {
-    if (nextStage) {
-      stage = nextStage;
-      game = createGame(stage.grid, stage.solution);
-      showSolution = false;
-      nextStage = null;
-      prepareNextStage();
-    }
+    if (!puzzleFile) return;
+    const s = pickRandomStage(puzzleFile);
+    stage = s;
+    game = createGame(s.grid, s.solution);
+    showSolution = false;
   }
 
   function handleReset() {
@@ -255,9 +199,13 @@
       class="board"
       style="grid-template-columns: repeat({gridSize}, 1fr); grid-template-rows: repeat({gridSize}, 1fr);"
     ></div>
-    <p class="mt-2 text-center text-sm text-gray-500">
-      生成中...{#if generatingAttempt > 0}（{generatingAttempt}回試行）{/if}
-    </p>
+    <p class="mt-2 text-center text-sm text-gray-500">読み込み中...</p>
+  {:else if loadError}
+    <div
+      class="board"
+      style="grid-template-columns: repeat({gridSize}, 1fr); grid-template-rows: repeat({gridSize}, 1fr);"
+    ></div>
+    <p class="mt-2 text-center text-sm text-red-600">読み込みに失敗しました: {loadError}</p>
   {:else}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -342,21 +290,13 @@
     >
       ギブアップ
     </button>
-    {#if nextStage}
-      <button
-        class="cursor-pointer rounded-md bg-[var(--c-clear)] px-4 py-2 text-sm font-bold text-white hover:opacity-80"
-        onclick={showNextStage}
-      >
-        次のステージ
-      </button>
-    {:else if preparingNext}
-      <button
-        class="cursor-pointer rounded-md bg-[var(--c-clear)] px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-        disabled
-      >
-        次のステージ作成中{#if nextAttempt > 0}（{nextAttempt}回試行）{/if}
-      </button>
-    {/if}
+    <button
+      class="cursor-pointer rounded-md bg-[var(--c-clear)] px-4 py-2 text-sm font-bold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+      onclick={showNextStage}
+      disabled={loading || !!loadError}
+    >
+      次のステージ
+    </button>
   </div>
 </div>
 
