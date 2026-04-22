@@ -26,6 +26,12 @@
       emoji: '✏️',
       description: '全ての線を一筆で通るパズル',
     },
+    {
+      name: 'ナンバーリンク',
+      path: '/numberlink',
+      emoji: '🔗',
+      description: '番号のペアを線でつないで全マスを埋めるパズル',
+    },
   ];
 </script>
 

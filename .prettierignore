@@ -4,5 +4,6 @@ dist/
 node_modules/
 package-lock.json
 **/*_weights.json
-scripts/generate_puzzles/target/
+scripts/generate_one_stroke/target/
+scripts/generate_numberlink/target/
 static/puzzles/

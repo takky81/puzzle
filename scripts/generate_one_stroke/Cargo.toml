@@ -1,10 +1,10 @@
 [package]
-name = "generate_puzzles"
+name = "generate_one_stroke"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "generate_puzzles"
+name = "generate_one_stroke"
 path = "src/main.rs"
 
 [dependencies]
