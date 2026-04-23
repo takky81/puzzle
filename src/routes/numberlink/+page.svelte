@@ -271,39 +271,41 @@
           <div
             class="cell"
             class:number-cell={numberId !== undefined}
-            style:background={ownerId !== undefined && numberId === undefined
-              ? lightColorFor(ownerId)
-              : undefined}
+            style:background={numberId !== undefined
+              ? colorFor(numberId)
+              : ownerId !== undefined
+                ? lightColorFor(ownerId)
+                : undefined}
             data-row={r}
             data-col={c}
           >
             {#if numberId !== undefined}
-              <span class="number" style:color={colorFor(numberId)}>
+              <span class="number">
                 {numberId}
               </span>
             {/if}
-            {#if c < gridSize - 1 && rightEdgeId !== undefined}
+            {#if numberId === undefined && c < gridSize - 1 && rightEdgeId !== undefined}
               <div class="edge edge-right" style:background={colorFor(rightEdgeId)}></div>
             {/if}
-            {#if c > 0 && leftEdgeId !== undefined}
+            {#if numberId === undefined && c > 0 && leftEdgeId !== undefined}
               <div class="edge edge-left" style:background={colorFor(leftEdgeId)}></div>
             {/if}
-            {#if r < gridSize - 1 && downEdgeId !== undefined}
+            {#if numberId === undefined && r < gridSize - 1 && downEdgeId !== undefined}
               <div class="edge edge-down" style:background={colorFor(downEdgeId)}></div>
             {/if}
-            {#if r > 0 && upEdgeId !== undefined}
+            {#if numberId === undefined && r > 0 && upEdgeId !== undefined}
               <div class="edge edge-up" style:background={colorFor(upEdgeId)}></div>
             {/if}
-            {#if c < gridSize - 1 && rightSolId !== undefined}
+            {#if numberId === undefined && c < gridSize - 1 && rightSolId !== undefined}
               <div class="solution-edge edge-right" style:background={colorFor(rightSolId)}></div>
             {/if}
-            {#if c > 0 && leftSolId !== undefined}
+            {#if numberId === undefined && c > 0 && leftSolId !== undefined}
               <div class="solution-edge edge-left" style:background={colorFor(leftSolId)}></div>
             {/if}
-            {#if r < gridSize - 1 && downSolId !== undefined}
+            {#if numberId === undefined && r < gridSize - 1 && downSolId !== undefined}
               <div class="solution-edge edge-down" style:background={colorFor(downSolId)}></div>
             {/if}
-            {#if r > 0 && upSolId !== undefined}
+            {#if numberId === undefined && r > 0 && upSolId !== undefined}
               <div class="solution-edge edge-up" style:background={colorFor(upSolId)}></div>
             {/if}
           </div>
@@ -401,8 +403,8 @@
   }
 
   .cell.number-cell {
-    background: white;
     font-weight: 900;
+    color: white;
   }
 
   .number {
