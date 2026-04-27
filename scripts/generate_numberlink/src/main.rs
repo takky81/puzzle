@@ -16,13 +16,6 @@ fn max_k_for_size(n: usize) -> usize {
     (n * n) / 2
 }
 
-fn has_adjacent_pair(numbers: &[NumPair]) -> bool {
-    numbers.iter().any(|np| {
-        let [[r1, c1], [r2, c2]] = np.positions;
-        r1.abs_diff(r2) + c1.abs_diff(c2) == 1
-    })
-}
-
 fn generate_for_size(n: usize) -> Vec<Puzzle> {
     use rayon::prelude::*;
     use std::collections::HashSet;
@@ -42,9 +35,6 @@ fn generate_for_size(n: usize) -> Vec<Puzzle> {
         let mut new_keys: Vec<(Vec<usize>, Puzzle)> = Vec::new();
         for cover in covers {
             let puzzle = cover_to_puzzle(&cover);
-            if has_adjacent_pair(&puzzle.numbers) {
-                continue;
-            }
             let key = canonical_key(n, &puzzle.numbers);
             if seen.insert(key.clone()) {
                 new_keys.push((key, puzzle));
@@ -275,6 +265,12 @@ fn dfs_cover(
         return;
     }
     endpoints[k - 1].1 = tip;
+    // 案B: 閉じた時点で両端点が隣接 → 全体フィルタより早く枝刈り
+    let (rs, cs) = rc(n, endpoints[k - 1].0);
+    let (rt, ct) = rc(n, tip);
+    if rs.abs_diff(rt) + cs.abs_diff(ct) == 1 {
+        return;
+    }
     let next_unvisited = (0..total).find(|&i| cell_id[i] == 0);
     if let Some(next) = next_unvisited {
         if k < target_k {
@@ -294,6 +290,30 @@ fn dfs_cover(
             endpoints: endpoints.clone(),
         });
     }
+}
+
+/// `from` から `to` へ、未割当セル (cell_id==0) を経由して到達できるか BFS で判定する。
+/// `to` は番号マス（cell_id != 0）でもゴールとして扱う。
+fn can_reach(n: usize, cell_id: &[usize], from: usize, to: usize) -> bool {
+    if from == to {
+        return true;
+    }
+    let total = n * n;
+    let mut visited = vec![false; total];
+    let mut queue = vec![from];
+    visited[from] = true;
+    while let Some(v) = queue.pop() {
+        for nb in neighbors(n, v).into_iter().flatten() {
+            if nb == to {
+                return true;
+            }
+            if !visited[nb] && cell_id[nb] == 0 {
+                visited[nb] = true;
+                queue.push(nb);
+            }
+        }
+    }
+    false
 }
 
 fn check_2x2_around_cell(n: usize, cell_id: &[usize], i: usize) -> bool {
@@ -340,8 +360,6 @@ fn solve_path(
     let current_id = np.id;
 
     if tip == end_idx {
-        // プレイヤーのクリア条件は「全ペア接続」のみ。被覆は求めない。
-        // 全ペアがつながれば解として1つカウントする。
         if pair_idx + 1 == numbers.len() {
             *count += 1;
             return;
@@ -353,6 +371,11 @@ fn solve_path(
             numbers[next_idx].positions[0][1],
         );
         solve_path(n, cell_id, numbers, next_idx, next_start, count, limit);
+        return;
+    }
+
+    // 案C': 終点へ到達不可なら探索不要
+    if !can_reach(n, cell_id, tip, end_idx) {
         return;
     }
 
@@ -511,6 +534,13 @@ mod tests {
         assert_eq!(count_solutions(2, &numbers, 1_000), 2);
     }
 
+    fn has_adjacent_pair(numbers: &[NumPair]) -> bool {
+        numbers.iter().any(|np| {
+            let [[r1, c1], [r2, c2]] = np.positions;
+            r1.abs_diff(r2) + c1.abs_diff(c2) == 1
+        })
+    }
+
     #[test]
     fn has_adjacent_pair_true_for_adjacent() {
         let numbers = vec![NumPair {
@@ -529,16 +559,58 @@ mod tests {
         assert!(!has_adjacent_pair(&numbers));
     }
 
+    // --- can_reach ---
+
     #[test]
-    fn enumerate_covers_2x2_k2_returns_nonempty() {
-        let covers = enumerate_covers(2, 2);
-        // 2×2 に K=2 のパスカバーは少なくとも存在する（横2本・縦2本など）
+    fn can_reach_direct_path() {
+        // 2×2 全セル未割当: (0,0) から (1,1) へ到達できる
+        let cell_id = vec![0usize; 4];
+        assert!(can_reach(2, &cell_id, 0, 3));
+    }
+
+    #[test]
+    fn can_reach_blocked_by_assigned_cells() {
+        // 2×2 で cell 1,2 が他のペアで埋まっている: (0,0) から (1,1) に到達不可
+        let cell_id = vec![0usize, 99, 99, 0];
+        assert!(!can_reach(2, &cell_id, 0, 3));
+    }
+
+    #[test]
+    fn can_reach_adjacent_is_true() {
+        // 隣接セル (0,0)-(0,1) は直接到達可能
+        let cell_id = vec![0usize; 9];
+        assert!(can_reach(3, &cell_id, 0, 1));
+    }
+
+    // --- enumerate_covers (案B: 隣接ペア早期排除後) ---
+
+    #[test]
+    fn enumerate_covers_4x4_k3_returns_nonempty() {
+        // 4×4 K=3 のカバーは存在し、各カバーは全マス非ゼロ
+        let covers = enumerate_covers(4, 3);
         assert!(!covers.is_empty());
-        // 各カバーは cell_id が全マス非ゼロ、endpoints が K 組
         for c in &covers {
-            assert_eq!(c.cell_id.len(), 4);
+            assert_eq!(c.cell_id.len(), 16);
             assert!(c.cell_id.iter().all(|&x| x > 0));
-            assert_eq!(c.endpoints.len(), 2);
+            assert_eq!(c.endpoints.len(), 3);
+        }
+    }
+
+    #[test]
+    fn enumerate_covers_no_adjacent_pairs() {
+        // 案B: enumerate_covers から出てくるカバーに隣接ペアは存在しない
+        for k in 3..=4 {
+            for cover in enumerate_covers(3, k) {
+                for (start, end) in &cover.endpoints {
+                    let (rs, cs) = rc(3, *start);
+                    let (re, ce) = rc(3, *end);
+                    assert_ne!(
+                        rs.abs_diff(re) + cs.abs_diff(ce),
+                        1,
+                        "k={k}: adjacent pair found at ({rs},{cs})-({re},{ce})"
+                    );
+                }
+            }
         }
     }
 
