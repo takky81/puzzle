@@ -16,6 +16,13 @@ fn max_k_for_size(n: usize) -> usize {
     (n * n) / 2
 }
 
+fn has_adjacent_pair(numbers: &[NumPair]) -> bool {
+    numbers.iter().any(|np| {
+        let [[r1, c1], [r2, c2]] = np.positions;
+        r1.abs_diff(r2) + c1.abs_diff(c2) == 1
+    })
+}
+
 fn generate_for_size(n: usize) -> Vec<Puzzle> {
     use rayon::prelude::*;
     use std::collections::HashSet;
@@ -35,6 +42,9 @@ fn generate_for_size(n: usize) -> Vec<Puzzle> {
         let mut new_keys: Vec<(Vec<usize>, Puzzle)> = Vec::new();
         for cover in covers {
             let puzzle = cover_to_puzzle(&cover);
+            if has_adjacent_pair(&puzzle.numbers) {
+                continue;
+            }
             let key = canonical_key(n, &puzzle.numbers);
             if seen.insert(key.clone()) {
                 new_keys.push((key, puzzle));
@@ -499,6 +509,24 @@ mod tests {
             positions: [[0, 0], [1, 1]],
         }];
         assert_eq!(count_solutions(2, &numbers, 1_000), 2);
+    }
+
+    #[test]
+    fn has_adjacent_pair_true_for_adjacent() {
+        let numbers = vec![NumPair {
+            id: 1,
+            positions: [[0, 0], [0, 1]],
+        }];
+        assert!(has_adjacent_pair(&numbers));
+    }
+
+    #[test]
+    fn has_adjacent_pair_false_for_non_adjacent() {
+        let numbers = vec![NumPair {
+            id: 1,
+            positions: [[0, 0], [0, 2]],
+        }];
+        assert!(!has_adjacent_pair(&numbers));
     }
 
     #[test]
