@@ -211,13 +211,77 @@ fn canonical_key(n: usize, numbers: &[NumPair]) -> Vec<usize> {
 }
 
 
+/// パス1の全完成状態（cell_id スナップショット + 端点ペア）を収集する逐次 DFS。
+/// 収集した状態を rayon で並列展開してパス2以降を探索する。
 fn enumerate_covers(n: usize, target_k: usize) -> Vec<Cover> {
+    use rayon::prelude::*;
+
     let total = n * n;
-    let mut results: Vec<Cover> = Vec::new();
-    let mut cell_id = vec![0usize; total];
-    let mut endpoints: Vec<(usize, usize)> = Vec::with_capacity(target_k);
-    dfs_cover(n, &mut cell_id, &mut endpoints, None, target_k, &mut results);
-    results
+
+    // k=1 は全セル Hamiltonian パスが対象。並列化の恩恵が小さいので逐次のまま。
+    if target_k < 2 {
+        let mut results = Vec::new();
+        let mut cell_id = vec![0usize; total];
+        let mut endpoints = Vec::new();
+        dfs_cover(n, &mut cell_id, &mut endpoints, None, target_k, &mut results);
+        return results;
+    }
+
+    // Phase 1 (逐次): パス1の全完成状態を seeds として収集
+    let mut seeds: Vec<(Vec<usize>, (usize, usize))> = Vec::new();
+    {
+        let mut cell_id = vec![0usize; total];
+        cell_id[0] = 1; // パス1は常にセル0から開始
+        collect_path1_seeds(n, &mut cell_id, 0, &mut seeds);
+    }
+
+    // Phase 2 (並列): 各 seed からパス2以降を独立に探索
+    seeds
+        .into_par_iter()
+        .flat_map_iter(|(mut cell_id, ep1)| {
+            let next = (0..total).find(|&i| cell_id[i] == 0);
+            let mut endpoints = vec![ep1];
+            let mut out = Vec::new();
+            if let Some(start2) = next {
+                cell_id[start2] = 2;
+                endpoints.push((start2, 0));
+                if check_2x2_around_cell(n, &cell_id, start2) {
+                    dfs_cover(n, &mut cell_id, &mut endpoints, Some(start2), target_k, &mut out);
+                }
+            }
+            out
+        })
+        .collect()
+}
+
+/// パス1の全完成状態を収集する。
+/// Option A（延長）→ Option B（閉じる）の順で探索する（dfs_cover と同じ順序）。
+fn collect_path1_seeds(
+    n: usize,
+    cell_id: &mut Vec<usize>,
+    tip: usize,
+    seeds: &mut Vec<(Vec<usize>, (usize, usize))>,
+) {
+    // Option A: パス1を隣接未割当セルへ延長
+    for nb in neighbors(n, tip).into_iter().flatten() {
+        if cell_id[nb] == 0 {
+            cell_id[nb] = 1;
+            if check_2x2_around_cell(n, cell_id, nb) {
+                collect_path1_seeds(n, cell_id, nb, seeds);
+            }
+            cell_id[nb] = 0;
+        }
+    }
+
+    // Option B: パス1をここで閉じる（長さ≥2かつ端点が非隣接）
+    let path_len = cell_id.iter().filter(|&&x| x == 1).count();
+    if path_len >= 2 {
+        let (rs, cs) = rc(n, 0); // パス1の開始は常にセル0
+        let (rt, ct) = rc(n, tip);
+        if rs.abs_diff(rt) + cs.abs_diff(ct) != 1 {
+            seeds.push((cell_id.clone(), (0, tip)));
+        }
+    }
 }
 
 fn dfs_cover(
@@ -585,10 +649,10 @@ mod tests {
     // --- enumerate_covers (案B: 隣接ペア早期排除後) ---
 
     #[test]
-    fn enumerate_covers_4x4_k3_returns_nonempty() {
-        // 4×4 K=3 のカバーは存在し、各カバーは全マス非ゼロ
+    fn enumerate_covers_4x4_k3_count_stable() {
+        // 並列化の前後でカバー数が変わらないことを確認するリグレッションテスト
         let covers = enumerate_covers(4, 3);
-        assert!(!covers.is_empty());
+        assert_eq!(covers.len(), 72, "4x4 k=3 のカバー数が変わっている");
         for c in &covers {
             assert_eq!(c.cell_id.len(), 16);
             assert!(c.cell_id.iter().all(|&x| x > 0));
