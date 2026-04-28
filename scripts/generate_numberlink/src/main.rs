@@ -697,6 +697,30 @@ mod tests {
     }
 
     #[test]
+    fn canonical_key_id_permutation_invariant() {
+        // ID を入れ替えただけでも同じ canonical key を返すか確認
+        let n = 4;
+        let abc = vec![
+            NumPair { id: 1, positions: [[0, 0], [3, 3]] },
+            NumPair { id: 2, positions: [[0, 3], [3, 0]] },
+            NumPair { id: 3, positions: [[1, 0], [2, 3]] },
+        ];
+        // IDs を入れ替え（同じ位置、異なる番号）
+        let bca = vec![
+            NumPair { id: 1, positions: [[0, 3], [3, 0]] },
+            NumPair { id: 2, positions: [[1, 0], [2, 3]] },
+            NumPair { id: 3, positions: [[0, 0], [3, 3]] },
+        ];
+        let cab = vec![
+            NumPair { id: 1, positions: [[1, 0], [2, 3]] },
+            NumPair { id: 2, positions: [[0, 0], [3, 3]] },
+            NumPair { id: 3, positions: [[0, 3], [3, 0]] },
+        ];
+        assert_eq!(canonical_key(n, &abc), canonical_key(n, &bca));
+        assert_eq!(canonical_key(n, &abc), canonical_key(n, &cab));
+    }
+
+    #[test]
     fn canonical_key_rotation_equivalent() {
         // 90°回転したペア配置は同じ canonical key
         // 元: 3×3, pair at (0,0)-(0,2)
