@@ -36,7 +36,7 @@
     loadError = null;
     puzzleFile = null;
     try {
-      const res = await fetch(`${base}/puzzles/${gridSize}x${gridSize}.json`);
+      const res = await fetch(`${base}/puzzles/one-stroke/${gridSize}x${gridSize}.json`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       puzzleFile = (await res.json()) as PuzzleFile;
       const s = pickRandomStage(puzzleFile);

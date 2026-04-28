@@ -18,7 +18,7 @@ export async function loadStage(
   fetchFn: typeof fetch = fetch,
   rng: () => number = Math.random,
 ): Promise<Stage> {
-  const res = await fetchFn(`${basePath}/puzzles/${size}x${size}.json`);
+  const res = await fetchFn(`${basePath}/puzzles/one-stroke/${size}x${size}.json`);
   const file = (await res.json()) as PuzzleFile;
   return pickRandomStage(file, rng);
 }

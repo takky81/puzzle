@@ -8,7 +8,7 @@
 //!
 //! Usage:
 //!   cargo run --release -- [output_dir]
-//!   (default output_dir: ../../static/puzzles)
+//!   (default output_dir: ../../static/puzzles/one-stroke)
 
 use rayon::prelude::*;
 use serde::Serialize;
@@ -581,7 +581,7 @@ fn main() {
     let out_dir = std::env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("../../static/puzzles"));
+        .unwrap_or_else(|| PathBuf::from("../../static/puzzles/one-stroke"));
 
     fs::create_dir_all(&out_dir).expect("cannot create output directory");
 

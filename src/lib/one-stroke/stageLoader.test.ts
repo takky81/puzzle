@@ -87,6 +87,6 @@ describe('loadStage', () => {
     await loadStage(4, '/puzzle', fetchFn as typeof fetch, () => 0);
 
     // Assert
-    expect(receivedUrl).toBe('/puzzle/puzzles/4x4.json');
+    expect(receivedUrl).toBe('/puzzle/puzzles/one-stroke/4x4.json');
   });
 });
