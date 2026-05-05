@@ -7,31 +7,80 @@
 //!   - Solution is unique
 //!
 //! Usage:
-//!   cargo run --release -- [output_dir]
+//!   cargo run --release -- [output_dir] [sizes]
 //!   (default output_dir: ../../static/puzzles/numberlink)
+//!   (default sizes: 4,5,6)
 
-const TARGET_PUZZLES: usize = 100;
+/// k 間で候補を絞り込む際の上限（難易度上位をメモリに保持）
+const KEEP_TOP: usize = 2000;
 
 fn max_k_for_size(n: usize) -> usize {
     (n * n) / 2
 }
 
+/// 生成時の k 上限。6×6 は k=8 以降が長時間かかるため k=7 で打ち切る。
+fn generation_max_k(n: usize) -> usize {
+    match n {
+        6 => 7,
+        _ => max_k_for_size(n),
+    }
+}
+
+fn key_to_string(key: &[usize]) -> String {
+    key.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("-")
+}
+
+/// 難易度スコア = 各パスの「迂回係数」(パス長 - マンハッタン距離) の積。
+/// 直線パスの係数は 1、迂回するほど大きくなる。
+fn compute_difficulty(puzzle: &Puzzle) -> u64 {
+    let mut score: u64 = 1;
+    for (i, sol) in puzzle.solution.iter().enumerate() {
+        let path_len = sol.path.len() as i64;
+        let [r1, c1] = puzzle.numbers[i].positions[0];
+        let [r2, c2] = puzzle.numbers[i].positions[1];
+        let manhattan =
+            (r1 as i64 - r2 as i64).abs() + (c1 as i64 - c2 as i64).abs();
+        let factor = (path_len - manhattan) as u64;
+        score = score.saturating_mul(factor);
+    }
+    score
+}
+
+/// 難易度上位 n 問を選択して難易度降順で返す。
+/// n 以下なら全て返す。同一難易度の端数は全て含む（ちょうど 1000 問ではなく 1000 問超えた難易度まで含む）。
+fn select_top_n_by_difficulty(mut puzzles: Vec<Puzzle>, n: usize) -> Vec<Puzzle> {
+    if puzzles.len() <= n {
+        return puzzles;
+    }
+    puzzles.sort_by(|a, b| b.difficulty.cmp(&a.difficulty));
+    let cutoff = puzzles[n - 1].difficulty;
+    puzzles.retain(|p| p.difficulty >= cutoff);
+    puzzles
+}
+
 fn generate_for_size(n: usize) -> Vec<Puzzle> {
     use rayon::prelude::*;
     use std::collections::HashSet;
-    let mut puzzles: Vec<Puzzle> = Vec::new();
+    use std::time::Instant;
+    let mut all_puzzles: Vec<Puzzle> = Vec::new();
     let mut seen: HashSet<Vec<usize>> = HashSet::new();
-    let limit: u64 = 5_000_000;
+    let limit: u64 = 2;
 
-    for k in 2..=max_k_for_size(n) {
-        if puzzles.len() >= TARGET_PUZZLES {
-            break;
-        }
-        eprintln!("  n={n}, k={k}: enumerating covers...");
+    for k in 2..=generation_max_k(n) {
+        let t_k = Instant::now();
+        eprintln!("  [n={n} k={k}] 探索開始");
+
+        let t_enum = Instant::now();
         let covers = enumerate_covers(n, k);
-        eprintln!("    {} raw covers", covers.len());
+        let dt_enum = t_enum.elapsed().as_secs_f64();
+        eprintln!("    カバー列挙: {} 件 ({:.2}s)", covers.len(), dt_enum);
 
-        // Canonical key (dedupe) is serial; uniqueness check (expensive) is parallel.
+        if covers.is_empty() {
+            eprintln!("    → カバーなし、次のkへ");
+            continue;
+        }
+
+        let t_dedup = Instant::now();
         let mut new_keys: Vec<(Vec<usize>, Puzzle)> = Vec::new();
         for cover in covers {
             let puzzle = cover_to_puzzle(&cover);
@@ -40,32 +89,70 @@ fn generate_for_size(n: usize) -> Vec<Puzzle> {
                 new_keys.push((key, puzzle));
             }
         }
+        let dt_dedup = t_dedup.elapsed().as_secs_f64();
+        let n_dedup = new_keys.len();
+        eprintln!("    重複除去後: {n_dedup} 問 ({dt_dedup:.2}s)");
+
+        if n_dedup == 0 {
+            eprintln!("    → 新規問題なし、次のkへ");
+            continue;
+        }
+
+        eprintln!("    一意解チェック中 ({n_dedup} 問)...");
+        let t_unique = Instant::now();
         let unique: Vec<Puzzle> = new_keys
             .into_par_iter()
-            .filter_map(|(_, puzzle)| {
+            .filter_map(|(key, mut puzzle)| {
                 if count_solutions(n, &puzzle.numbers, limit) == 1 {
+                    puzzle.id = key_to_string(&key);
                     Some(puzzle)
                 } else {
                     None
                 }
             })
             .collect();
+        let dt_unique = t_unique.elapsed().as_secs_f64();
+        let n_unique = unique.len();
+        eprintln!("    一意解: {n_unique} 問 ({dt_unique:.2}s)");
+        eprintln!(
+            "  [n={n} k={k}] 完了: {n_unique} 問 (合計 {:.2}s)",
+            t_k.elapsed().as_secs_f64()
+        );
 
-        for puzzle in unique {
-            if puzzles.len() >= TARGET_PUZZLES {
-                break;
+        if n_unique > 0 {
+            all_puzzles.extend(unique);
+            // 中間絞り込み: メモリを KEEP_TOP に制限
+            if all_puzzles.len() > KEEP_TOP {
+                all_puzzles = select_top_n_by_difficulty(all_puzzles, KEEP_TOP);
+                eprintln!("    → 上位 {} 問に絞り込み", all_puzzles.len());
             }
-            puzzles.push(puzzle);
         }
-        eprintln!("    accepted total = {}", puzzles.len());
     }
-    puzzles
+
+    let total_before = all_puzzles.len();
+    let selected = select_top_n_by_difficulty(all_puzzles, 1000);
+    eprintln!(
+        "  全k統合: {} → {} 問 (難易度上位)",
+        total_before,
+        selected.len()
+    );
+    selected
 }
 
 fn main() {
     use std::fs;
     use std::path::PathBuf;
     use std::time::Instant;
+
+    let total_cpus = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
+    let threads = (total_cpus).saturating_sub(2).max(1);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .unwrap();
+    eprintln!("CPUs={total_cpus}, rayon threads={threads}");
 
     let out_dir = std::env::args()
         .nth(1)
@@ -79,27 +166,39 @@ fn main() {
             .split(',')
             .filter_map(|x| x.parse().ok())
             .collect::<Vec<usize>>(),
-        None => (4..=9).collect(),
+        None => (4..=6).collect(),
     };
 
     for n in size_range {
         let t = Instant::now();
-        eprintln!("=== {}×{} ===", n, n);
+        eprintln!("\n=== {}×{} 生成開始 ===", n, n);
 
         let puzzles = generate_for_size(n);
-        eprintln!(
-            "→ {} puzzles ({:.1}s)",
-            puzzles.len(),
-            t.elapsed().as_secs_f64()
-        );
+        let count = puzzles.len();
+
         if puzzles.is_empty() {
-            eprintln!("  no puzzles for n={n}, skipping.");
+            eprintln!(
+                "=== {}×{}: 有効問題なし ({:.1}s) ===",
+                n,
+                n,
+                t.elapsed().as_secs_f64()
+            );
             continue;
         }
-        let json = serde_json::to_string_pretty(&PuzzleFile { puzzles }).expect("serialize puzzles");
+
+        eprintln!(
+            "=== {}×{} 完了: {}問 ({:.1}s) ===",
+            n,
+            n,
+            count,
+            t.elapsed().as_secs_f64()
+        );
+
         let file = out_dir.join(format!("{}x{}.json", n, n));
+        let json =
+            serde_json::to_string_pretty(&PuzzleFile { puzzles }).expect("serialize puzzles");
         fs::write(&file, &json).expect("write puzzles file");
-        eprintln!("  written: {}", file.display());
+        eprintln!("  書き込み: {} ({} 問)", file.display(), count);
     }
 }
 
@@ -127,6 +226,9 @@ struct PathSolution {
 
 #[derive(Serialize, Clone, Debug)]
 struct Puzzle {
+    id: String,
+    k: usize,
+    difficulty: u64,
     size: usize,
     numbers: Vec<NumPair>,
     solution: Vec<PathSolution>,
@@ -161,11 +263,16 @@ fn cover_to_puzzle(cover: &Cover) -> Puzzle {
         let path: Vec<[usize; 2]> = path_idx.iter().map(|&i| [i / n, i % n]).collect();
         solution.push(PathSolution { id, path });
     }
-    Puzzle {
+    let mut puzzle = Puzzle {
+        id: String::new(),
+        k,
+        difficulty: 0,
         size: n,
         numbers,
         solution,
-    }
+    };
+    puzzle.difficulty = compute_difficulty(&puzzle);
+    puzzle
 }
 
 fn apply_sym(n: usize, r: usize, c: usize, s: u8) -> (usize, usize) {
@@ -211,6 +318,29 @@ fn canonical_key(n: usize, numbers: &[NumPair]) -> Vec<usize> {
 }
 
 
+/// 未割当セル（cell_id==0）の連結成分数を返す。
+fn count_components(n: usize, cell_id: &[usize]) -> usize {
+    let total = n * n;
+    let mut visited = vec![false; total];
+    let mut count = 0;
+    for start in 0..total {
+        if cell_id[start] == 0 && !visited[start] {
+            count += 1;
+            let mut queue = vec![start];
+            visited[start] = true;
+            while let Some(v) = queue.pop() {
+                for nb in neighbors(n, v).into_iter().flatten() {
+                    if cell_id[nb] == 0 && !visited[nb] {
+                        visited[nb] = true;
+                        queue.push(nb);
+                    }
+                }
+            }
+        }
+    }
+    count
+}
+
 /// パス1の全完成状態（cell_id スナップショット + 端点ペア）を収集する逐次 DFS。
 /// 収集した状態を rayon で並列展開してパス2以降を探索する。
 fn enumerate_covers(n: usize, target_k: usize) -> Vec<Cover> {
@@ -232,7 +362,7 @@ fn enumerate_covers(n: usize, target_k: usize) -> Vec<Cover> {
     {
         let mut cell_id = vec![0usize; total];
         cell_id[0] = 1; // パス1は常にセル0から開始
-        collect_path1_seeds(n, &mut cell_id, 0, &mut seeds);
+        collect_path1_seeds(n, &mut cell_id, 0, target_k, &mut seeds);
     }
 
     // Phase 2 (並列): 各 seed からパス2以降を独立に探索
@@ -260,14 +390,17 @@ fn collect_path1_seeds(
     n: usize,
     cell_id: &mut Vec<usize>,
     tip: usize,
+    target_k: usize,
     seeds: &mut Vec<(Vec<usize>, (usize, usize))>,
 ) {
     // Option A: パス1を隣接未割当セルへ延長
     for nb in neighbors(n, tip).into_iter().flatten() {
         if cell_id[nb] == 0 {
             cell_id[nb] = 1;
-            if check_2x2_around_cell(n, cell_id, nb) {
-                collect_path1_seeds(n, cell_id, nb, seeds);
+            if check_2x2_around_cell(n, cell_id, nb)
+                && count_components(n, cell_id) <= target_k
+            {
+                collect_path1_seeds(n, cell_id, nb, target_k, seeds);
             }
             cell_id[nb] = 0;
         }
@@ -279,7 +412,11 @@ fn collect_path1_seeds(
         let (rs, cs) = rc(n, 0); // パス1の開始は常にセル0
         let (rt, ct) = rc(n, tip);
         if rs.abs_diff(rt) + cs.abs_diff(ct) != 1 {
-            seeds.push((cell_id.clone(), (0, tip)));
+            // 未割当の連結成分数が残りパス数を超えるなら詰み
+            let remaining = target_k - 1;
+            if count_components(n, cell_id) <= remaining {
+                seeds.push((cell_id.clone(), (0, tip)));
+            }
         }
     }
 }
@@ -314,10 +451,14 @@ fn dfs_cover(
     let k = endpoints.len();
     let current_id = k;
 
+    // target_k - k + 1: 現在のパス(1) + 残りのパス(target_k-k)
+    let max_components = target_k - k + 1;
     for nb in neighbors(n, tip).into_iter().flatten() {
         if cell_id[nb] == 0 {
             cell_id[nb] = current_id;
-            if check_2x2_around_cell(n, cell_id, nb) {
+            if check_2x2_around_cell(n, cell_id, nb)
+                && count_components(n, cell_id) <= max_components
+            {
                 dfs_cover(n, cell_id, endpoints, Some(nb), target_k, out);
             }
             cell_id[nb] = 0;
@@ -338,6 +479,11 @@ fn dfs_cover(
     let next_unvisited = (0..total).find(|&i| cell_id[i] == 0);
     if let Some(next) = next_unvisited {
         if k < target_k {
+            // 未割当の連結成分数が残りパス数を超えるなら詰み
+            let remaining = target_k - k;
+            if count_components(n, cell_id) > remaining {
+                return;
+            }
             let new_id = k + 1;
             cell_id[next] = new_id;
             endpoints.push((next, 0));
@@ -407,6 +553,61 @@ fn count_solutions(n: usize, numbers: &[NumPair], limit: u64) -> usize {
     count
 }
 
+/// まだルーティングしていない全ペアが未割当セルを通じて接続可能かチェック。
+/// first_idx から numbers.len()-1 まで対象。
+#[inline]
+fn future_pairs_reachable(n: usize, cell_id: &[usize], numbers: &[NumPair], first_idx: usize) -> bool {
+    for i in first_idx..numbers.len() {
+        let s = idx(n, numbers[i].positions[0][0], numbers[i].positions[0][1]);
+        let e = idx(n, numbers[i].positions[1][0], numbers[i].positions[1][1]);
+        if !can_reach(n, cell_id, s, e) {
+            return false;
+        }
+    }
+    true
+}
+
+/// 未割当セルに孤立ポケットがあるか判定する。
+/// tip（直前に割り当てたセル）および pair_idx 以降の全エンドポイントを起点に
+/// 未割当セルへ BFS し、到達できない未割当セルがあれば true を返す。
+fn has_pocket(
+    n: usize,
+    cell_id: &[usize],
+    numbers: &[NumPair],
+    pair_idx: usize,
+    tip: usize,
+) -> bool {
+    let total = n * n;
+    let mut visited = vec![false; total];
+    let mut queue = Vec::new();
+
+    // seeds: tip + pair_idx 以降の全エンドポイント
+    let mut seeds = vec![tip];
+    for np in &numbers[pair_idx..] {
+        seeds.push(idx(n, np.positions[0][0], np.positions[0][1]));
+        seeds.push(idx(n, np.positions[1][0], np.positions[1][1]));
+    }
+    for seed in seeds {
+        for nb in neighbors(n, seed).into_iter().flatten() {
+            if cell_id[nb] == 0 && !visited[nb] {
+                visited[nb] = true;
+                queue.push(nb);
+            }
+        }
+    }
+
+    while let Some(v) = queue.pop() {
+        for nb in neighbors(n, v).into_iter().flatten() {
+            if cell_id[nb] == 0 && !visited[nb] {
+                visited[nb] = true;
+                queue.push(nb);
+            }
+        }
+    }
+
+    (0..total).any(|i| cell_id[i] == 0 && !visited[i])
+}
+
 fn solve_path(
     n: usize,
     cell_id: &mut [usize],
@@ -429,16 +630,23 @@ fn solve_path(
             return;
         }
         let next_idx = pair_idx + 1;
+        // ペア遷移時: 残りの全ペアが接続可能か確認してから再帰
+        if !future_pairs_reachable(n, cell_id, numbers, next_idx) {
+            return;
+        }
         let next_start = idx(
             n,
             numbers[next_idx].positions[0][0],
             numbers[next_idx].positions[0][1],
         );
+        if has_pocket(n, cell_id, numbers, next_idx, next_start) {
+            return;
+        }
         solve_path(n, cell_id, numbers, next_idx, next_start, count, limit);
         return;
     }
 
-    // 案C': 終点へ到達不可なら探索不要
+    // 現在ペアの終点へ到達不可なら探索不要
     if !can_reach(n, cell_id, tip, end_idx) {
         return;
     }
@@ -455,7 +663,10 @@ fn solve_path(
             continue;
         }
         cell_id[nb] = current_id;
-        if check_2x2_around_cell(n, cell_id, nb) {
+        if check_2x2_around_cell(n, cell_id, nb)
+            && future_pairs_reachable(n, cell_id, numbers, pair_idx + 1)
+            && !has_pocket(n, cell_id, numbers, pair_idx, nb)
+        {
             solve_path(n, cell_id, numbers, pair_idx, nb, count, limit);
         }
         cell_id[nb] = 0;
@@ -508,6 +719,21 @@ fn neighbors(n: usize, i: usize) -> [Option<usize>; 4] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── ヘルパー ──────────────────────────────────────────────────────────────
+
+    fn make_dummy_puzzle(id_num: u64, difficulty: u64) -> Puzzle {
+        Puzzle {
+            id: id_num.to_string(),
+            k: 1,
+            difficulty,
+            size: 4,
+            numbers: vec![],
+            solution: vec![],
+        }
+    }
+
+    // ── 既存テスト ────────────────────────────────────────────────────────────
 
     #[test]
     fn rc_converts_index_to_row_col() {
@@ -564,7 +790,6 @@ mod tests {
 
     #[test]
     fn has_2x2_mono_out_of_range_is_false() {
-        // 3×3 グリッドで (r=2, c=2) 起点の2×2はグリッド外
         let cells = vec![1usize; 9];
         assert!(!has_2x2_mono(3, &cells, 2, 2));
         assert!(!has_2x2_mono(3, &cells, 2, 0));
@@ -573,7 +798,6 @@ mod tests {
 
     #[test]
     fn count_solutions_2x2_all_numbers_unique() {
-        // 2×2 に 2 ペア全て番号マス。唯一の自明解。
         let numbers = vec![
             NumPair {
                 id: 1,
@@ -589,8 +813,6 @@ mod tests {
 
     #[test]
     fn count_solutions_2x2_diagonal_pair_two_routes() {
-        // 2×2 の対角ペアは (0,1) 経由 と (1,0) 経由の2通り。
-        // 解の条件は全ペア接続のみなので、どちらも有効解。
         let numbers = vec![NumPair {
             id: 1,
             positions: [[0, 0], [1, 1]],
@@ -623,34 +845,26 @@ mod tests {
         assert!(!has_adjacent_pair(&numbers));
     }
 
-    // --- can_reach ---
-
     #[test]
     fn can_reach_direct_path() {
-        // 2×2 全セル未割当: (0,0) から (1,1) へ到達できる
         let cell_id = vec![0usize; 4];
         assert!(can_reach(2, &cell_id, 0, 3));
     }
 
     #[test]
     fn can_reach_blocked_by_assigned_cells() {
-        // 2×2 で cell 1,2 が他のペアで埋まっている: (0,0) から (1,1) に到達不可
         let cell_id = vec![0usize, 99, 99, 0];
         assert!(!can_reach(2, &cell_id, 0, 3));
     }
 
     #[test]
     fn can_reach_adjacent_is_true() {
-        // 隣接セル (0,0)-(0,1) は直接到達可能
         let cell_id = vec![0usize; 9];
         assert!(can_reach(3, &cell_id, 0, 1));
     }
 
-    // --- enumerate_covers (案B: 隣接ペア早期排除後) ---
-
     #[test]
     fn enumerate_covers_4x4_k3_count_stable() {
-        // 並列化の前後でカバー数が変わらないことを確認するリグレッションテスト
         let covers = enumerate_covers(4, 3);
         assert_eq!(covers.len(), 72, "4x4 k=3 のカバー数が変わっている");
         for c in &covers {
@@ -662,7 +876,6 @@ mod tests {
 
     #[test]
     fn enumerate_covers_no_adjacent_pairs() {
-        // 案B: enumerate_covers から出てくるカバーに隣接ペアは存在しない
         for k in 3..=4 {
             for cover in enumerate_covers(3, k) {
                 for (start, end) in &cover.endpoints {
@@ -680,7 +893,6 @@ mod tests {
 
     #[test]
     fn cover_to_puzzle_extracts_numbers_and_paths() {
-        // 2×2 の 2 ペア横並び: cell_id=[1,1,2,2], endpoints=[(0,1),(2,3)]
         let cover = Cover {
             n: 2,
             cell_id: vec![1, 1, 2, 2],
@@ -690,22 +902,18 @@ mod tests {
         assert_eq!(puzzle.size, 2);
         assert_eq!(puzzle.numbers.len(), 2);
         assert_eq!(puzzle.solution.len(), 2);
-        // ID 1 のパスは (0,0) から (0,1) の 2 マス
         assert_eq!(puzzle.solution[0].path, vec![[0, 0], [0, 1]]);
-        // ID 2 のパスは (1,0) から (1,1) の 2 マス
         assert_eq!(puzzle.solution[1].path, vec![[1, 0], [1, 1]]);
     }
 
     #[test]
     fn canonical_key_id_permutation_invariant() {
-        // ID を入れ替えただけでも同じ canonical key を返すか確認
         let n = 4;
         let abc = vec![
             NumPair { id: 1, positions: [[0, 0], [3, 3]] },
             NumPair { id: 2, positions: [[0, 3], [3, 0]] },
             NumPair { id: 3, positions: [[1, 0], [2, 3]] },
         ];
-        // IDs を入れ替え（同じ位置、異なる番号）
         let bca = vec![
             NumPair { id: 1, positions: [[0, 3], [3, 0]] },
             NumPair { id: 2, positions: [[1, 0], [2, 3]] },
@@ -722,9 +930,6 @@ mod tests {
 
     #[test]
     fn canonical_key_rotation_equivalent() {
-        // 90°回転したペア配置は同じ canonical key
-        // 元: 3×3, pair at (0,0)-(0,2)
-        // 90°回転後: (0,0)-(2,0)
         let original = vec![NumPair {
             id: 1,
             positions: [[0, 0], [0, 2]],
@@ -738,7 +943,6 @@ mod tests {
 
     #[test]
     fn canonical_key_different_layouts_differ() {
-        // 全く異なる配置は異なる key
         let a = vec![NumPair {
             id: 1,
             positions: [[0, 0], [0, 1]],
@@ -752,7 +956,6 @@ mod tests {
 
     #[test]
     fn count_solutions_3x3_three_vertical_pairs_unique() {
-        // 3×3 の縦3ペア: 唯一解は各列がそれぞれ同じID
         let numbers = vec![
             NumPair {
                 id: 1,
@@ -768,5 +971,135 @@ mod tests {
             },
         ];
         assert_eq!(count_solutions(3, &numbers, 1_000), 1);
+    }
+
+    #[test]
+    fn has_pocket_false_when_all_cells_reachable() {
+        let n = 3;
+        let cell_id = vec![1usize, 1, 0, 0, 0, 0, 0, 0, 1];
+        let numbers = vec![NumPair { id: 1, positions: [[0, 0], [2, 2]] }];
+        assert!(!has_pocket(n, &cell_id, &numbers, 0, 1));
+    }
+
+    #[test]
+    fn has_pocket_true_when_isolated_cell_exists() {
+        let n = 3;
+        let cell_id = vec![1usize, 1, 1, 1, 0, 1, 1, 1, 1];
+        let numbers = vec![NumPair { id: 1, positions: [[0, 0], [2, 2]] }];
+        assert!(has_pocket(n, &cell_id, &numbers, 0, 2));
+    }
+
+    #[test]
+    fn key_to_string_produces_dash_separated_values() {
+        assert_eq!(key_to_string(&[0, 5, 3, 12]), "0-5-3-12");
+    }
+
+    #[test]
+    fn cover_to_puzzle_id_is_initially_empty() {
+        let cover = Cover {
+            n: 2,
+            cell_id: vec![1, 1, 2, 2],
+            endpoints: vec![(0, 1), (2, 3)],
+        };
+        let puzzle = cover_to_puzzle(&cover);
+        assert_eq!(puzzle.id, "");
+    }
+
+    // ── 新規テスト ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn compute_difficulty_直線パスは係数1を返す() {
+        // (0,0)→(0,1)→(0,2)→(0,3): path_len=4, manhattan=3, factor=1
+        let puzzle = Puzzle {
+            id: String::new(),
+            k: 1,
+            difficulty: 0,
+            size: 4,
+            numbers: vec![NumPair { id: 1, positions: [[0, 0], [0, 3]] }],
+            solution: vec![PathSolution { id: 1, path: vec![[0, 0], [0, 1], [0, 2], [0, 3]] }],
+        };
+        assert_eq!(compute_difficulty(&puzzle), 1);
+    }
+
+    #[test]
+    fn compute_difficulty_迂回パスは係数3を返す() {
+        // (0,0)→(1,0)→(1,1)→(0,1): path_len=4, manhattan=1, factor=3
+        let puzzle = Puzzle {
+            id: String::new(),
+            k: 1,
+            difficulty: 0,
+            size: 2,
+            numbers: vec![NumPair { id: 1, positions: [[0, 0], [0, 1]] }],
+            solution: vec![PathSolution { id: 1, path: vec![[0, 0], [1, 0], [1, 1], [0, 1]] }],
+        };
+        assert_eq!(compute_difficulty(&puzzle), 3);
+    }
+
+    #[test]
+    fn compute_difficulty_2パスの積を返す() {
+        // pair1: 直線 factor=1, pair2: 迂回 factor=3 → 積=3
+        let puzzle = Puzzle {
+            id: String::new(),
+            k: 2,
+            difficulty: 0,
+            size: 4,
+            numbers: vec![
+                NumPair { id: 1, positions: [[0, 0], [0, 3]] },
+                NumPair { id: 2, positions: [[3, 0], [3, 1]] },
+            ],
+            solution: vec![
+                PathSolution { id: 1, path: vec![[0, 0], [0, 1], [0, 2], [0, 3]] }, // factor=1
+                PathSolution { id: 2, path: vec![[3, 0], [2, 0], [2, 1], [3, 1]] }, // factor=3
+            ],
+        };
+        assert_eq!(compute_difficulty(&puzzle), 3);
+    }
+
+    #[test]
+    fn select_top_n_n未満は全て返す() {
+        let puzzles: Vec<Puzzle> = (0..500u64).map(|i| make_dummy_puzzle(i, i)).collect();
+        assert_eq!(select_top_n_by_difficulty(puzzles, 1000).len(), 500);
+    }
+
+    #[test]
+    fn select_top_n_上位nを選択する() {
+        let puzzles: Vec<Puzzle> = (0..2000u64).map(|i| make_dummy_puzzle(i, i)).collect();
+        let result = select_top_n_by_difficulty(puzzles, 1000);
+        assert_eq!(result.len(), 1000);
+        assert!(result.iter().all(|p| p.difficulty >= 1000));
+    }
+
+    #[test]
+    fn select_top_n_同一難易度の端数を全て含む() {
+        // 800問 difficulty=3, 400問 difficulty=2, n=1000 → cutoff=2 → 全1200問
+        let mut puzzles: Vec<Puzzle> =
+            (0..800u64).map(|i| make_dummy_puzzle(i, 3)).collect();
+        puzzles.extend((800..1200u64).map(|i| make_dummy_puzzle(i, 2)));
+        let result = select_top_n_by_difficulty(puzzles, 1000);
+        assert_eq!(result.len(), 1200);
+        assert!(result.iter().all(|p| p.difficulty >= 2));
+    }
+
+    #[test]
+    fn generation_max_k_6は7を返す() {
+        assert_eq!(generation_max_k(6), 7);
+    }
+
+    #[test]
+    fn generation_max_k_4はmax_k_for_sizeと等しい() {
+        assert_eq!(generation_max_k(4), max_k_for_size(4));
+    }
+
+    #[test]
+    fn cover_to_puzzle_kとdifficulty_が設定される() {
+        let cover = Cover {
+            n: 2,
+            cell_id: vec![1, 1, 2, 2],
+            endpoints: vec![(0, 1), (2, 3)],
+        };
+        let puzzle = cover_to_puzzle(&cover);
+        assert_eq!(puzzle.k, 2);
+        // 両パスとも直線: difficulty = 1 * 1 = 1
+        assert_eq!(puzzle.difficulty, 1);
     }
 }

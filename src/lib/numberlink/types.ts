@@ -16,6 +16,12 @@ export interface Stage {
   solution: PathSolution[];
 }
 
+export interface PuzzleEntry extends Stage {
+  id: string;
+  k: number;
+  difficulty: number;
+}
+
 export interface NumberPath {
   id: number;
   cells: Position[];
