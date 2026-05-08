@@ -9,7 +9,7 @@
 //! Usage:
 //!   cargo run --release -- [output_dir] [sizes]
 //!   (default output_dir: ../../static/puzzles/numberlink)
-//!   (default sizes: 4,5,6)
+//!   (default sizes: 4,5,6 — 新サイズを追加するときは明示指定: e.g. "7")
 
 /// k 間で候補を絞り込む際の上限（難易度上位をメモリに保持）
 const KEEP_TOP: usize = 2000;
@@ -18,10 +18,11 @@ fn max_k_for_size(n: usize) -> usize {
     (n * n) / 2
 }
 
-/// 生成時の k 上限。6×6 は k=8 以降が長時間かかるため k=7 で打ち切る。
+/// 生成時の k 上限。6×6 は k=8 以降、7×7 は k=9 以降が長時間かかるため打ち切る。
 fn generation_max_k(n: usize) -> usize {
     match n {
         6 => 7,
+        7 => 8,
         _ => max_k_for_size(n),
     }
 }
