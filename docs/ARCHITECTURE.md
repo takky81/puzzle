@@ -34,6 +34,14 @@ src/
       generator.ts      ← ステージ生成アルゴリズム
       generator.test.ts
       types.ts
+    air-hockey/
+      types.ts          ← 型定義
+      physics.ts        ← 物理演算（パック移動・壁反射・パドル衝突）
+      physics.test.ts
+      logic.ts          ← ゲームロジック（フェーズ管理・スコア・リセット）
+      logic.test.ts
+      ai.ts             ← AI（軌道予測・守備行動）
+      ai.test.ts
     common/
       （共通ユーティリティがあれば）
   routes/
@@ -52,11 +60,15 @@ src/
     one-stroke/
       +page.svelte      ← 一筆書きのUI
       SPEC.md
+    air-hockey/
+      +page.svelte      ← エアホッケーのUI（Canvas + requestAnimationFrame）
+      SPEC.md
 e2e/
   navigation.test.ts    ← 共通E2Eテスト
   othello.test.ts       ← オセロE2Eテスト
   game2048.test.ts      ← 2048 E2Eテスト
   one-stroke.test.ts    ← 一筆書きE2Eテスト
+  air-hockey.test.ts    ← エアホッケーE2Eテスト
 docs/
   TDD.md                ← 開発手法
   ARCHITECTURE.md       ← このファイル

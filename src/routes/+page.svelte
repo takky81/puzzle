@@ -32,6 +32,12 @@
       emoji: '🔗',
       description: '番号のペアを線でつないで全マスを埋めるパズル',
     },
+    {
+      name: 'エアホッケー',
+      path: '/air-hockey',
+      emoji: '🏒',
+      description: 'vs AI または2人対戦で楽しむエアホッケー',
+    },
   ];
 </script>
 
