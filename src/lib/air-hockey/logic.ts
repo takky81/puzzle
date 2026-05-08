@@ -67,8 +67,8 @@ export function createInitialState(mode: GameMode, config: GameConfig): GameStat
     score: { p1: 0, p2: 0 },
     phase: 'countdown',
     countdownValue: 3,
-    goalTimer: 0,
     countdownTimer: 3,
+    goalTimer: 0,
     lastScorer: null,
     winner: null,
     config,
@@ -97,22 +97,16 @@ export function updateGame(
 
 export function resetPuck(state: GameState, scoredBy: 1 | 2): GameState {
   const field = makeField(state.config);
-  // パックは得点された側（scoredBy の反対）のコート中央にリセット
+  const y = field.height / 2;
+  const x = Math.random() < 0.5 ? state.config.puckRadius : field.width - state.config.puckRadius;
   const scoredAgainst = scoredBy === 1 ? 2 : 1;
-  const y =
-    scoredAgainst === 1
-      ? (field.height * 3) / 4 // Player 1 コート中央
-      : field.height / 4; // Player 2 コート中央
-  // 得点された側（scoredAgainst）へ向かう方向
-  const dirSign = scoredAgainst === 1 ? 1 : -1; // Player 1 は下向き(+y), Player 2 は上向き(-y)
+  const dirSign = scoredAgainst === 1 ? 1 : -1;
   const { vx, vy } = randomPuckVelocity(state.config, dirSign);
 
   return {
     ...state,
-    puck: { ...state.puck, pos: { x: field.width / 2, y }, vel: { x: vx, y: vy } },
-    phase: 'countdown',
-    countdownValue: 3,
-    countdownTimer: 3,
+    puck: { ...state.puck, pos: { x, y }, vel: { x: vx, y: vy } },
+    phase: 'playing',
   };
 }
 
@@ -125,7 +119,7 @@ function updateCountdown(
 ): GameState {
   const field = makeField(state.config);
   const newTimer = state.countdownTimer - dt;
-  const elapsed = 3 - newTimer; // 経過秒数
+  const elapsed = 3 - newTimer;
 
   let countdownValue: 3 | 2 | 1 | 0;
   let phase = state.phase as GameState['phase'];
@@ -141,19 +135,23 @@ function updateCountdown(
     countdownValue = 3;
   }
 
-  // パドルは動かせる（パックは動かない）
-  const player1 = movePaddleToward(state.player1, inputs.p1.paddleTarget, dt, state.config, {
-    x: 0,
-    y: field.height / 2,
-    width: field.width,
-    height: field.height / 2 - field.goalDepth,
-  });
-  const player2 = movePaddleToward(state.player2, inputs.p2.paddleTarget, dt, state.config, {
-    x: 0,
-    y: field.goalDepth,
-    width: field.width,
-    height: field.height / 2 - field.goalDepth,
-  });
+  const p2Speed = state.mode === 'vs-ai' ? state.config.ai.speed : Infinity;
+  const player1 = movePaddleToward(
+    state.player1,
+    inputs.p1.paddleTarget,
+    dt,
+    state.config,
+    { x: 0, y: field.height / 2, width: field.width, height: field.height / 2 - field.goalDepth },
+    Infinity,
+  );
+  const player2 = movePaddleToward(
+    state.player2,
+    inputs.p2.paddleTarget,
+    dt,
+    state.config,
+    { x: 0, y: field.goalDepth, width: field.width, height: field.height / 2 - field.goalDepth },
+    p2Speed,
+  );
 
   return {
     ...state,
@@ -195,9 +193,23 @@ function updatePlaying(
     }
   }
 
-  // パドル更新
-  const player1 = movePaddleToward(state.player1, inputs.p1.paddleTarget, dt, state.config, p1Zone);
-  const player2 = movePaddleToward(state.player2, inputs.p2.paddleTarget, dt, state.config, p2Zone);
+  const p2Speed = state.mode === 'vs-ai' ? state.config.ai.speed : Infinity;
+  const player1 = movePaddleToward(
+    state.player1,
+    inputs.p1.paddleTarget,
+    dt,
+    state.config,
+    p1Zone,
+    Infinity,
+  );
+  const player2 = movePaddleToward(
+    state.player2,
+    inputs.p2.paddleTarget,
+    dt,
+    state.config,
+    p2Zone,
+    p2Speed,
+  );
 
   // パック物理
   let puck = movePuck(state.puck, dt, state.config);
@@ -265,14 +277,29 @@ function updateGrabbed(
   const newPos = clampedTarget.pos;
   const puckVel = { x: (newPos.x - prevPos.x) / dt, y: (newPos.y - prevPos.y) / dt };
 
-  const player1 = movePaddleToward(state.player1, inputs.p1.paddleTarget, dt, state.config, p1Zone);
+  const player1 = movePaddleToward(
+    state.player1,
+    inputs.p1.paddleTarget,
+    dt,
+    state.config,
+    p1Zone,
+    Infinity,
+  );
   const p2Zone: Rect = {
     x: 0,
     y: field.goalDepth,
     width: field.width,
     height: field.height / 2 - field.goalDepth,
   };
-  const player2 = movePaddleToward(state.player2, inputs.p2.paddleTarget, dt, state.config, p2Zone);
+  const p2Speed = state.mode === 'vs-ai' ? state.config.ai.speed : Infinity;
+  const player2 = movePaddleToward(
+    state.player2,
+    inputs.p2.paddleTarget,
+    dt,
+    state.config,
+    p2Zone,
+    p2Speed,
+  );
 
   return {
     ...state,
@@ -303,8 +330,23 @@ function updateGoal(
     width: field.width,
     height: field.height / 2 - field.goalDepth,
   };
-  const player1 = movePaddleToward(state.player1, inputs.p1.paddleTarget, dt, state.config, p1Zone);
-  const player2 = movePaddleToward(state.player2, inputs.p2.paddleTarget, dt, state.config, p2Zone);
+  const p2Speed = state.mode === 'vs-ai' ? state.config.ai.speed : Infinity;
+  const player1 = movePaddleToward(
+    state.player1,
+    inputs.p1.paddleTarget,
+    dt,
+    state.config,
+    p1Zone,
+    Infinity,
+  );
+  const player2 = movePaddleToward(
+    state.player2,
+    inputs.p2.paddleTarget,
+    dt,
+    state.config,
+    p2Zone,
+    p2Speed,
+  );
 
   if (newGoalTimer >= 0.5) {
     const scoredBy = state.lastScorer ?? 1;
@@ -321,11 +363,12 @@ function movePaddleToward(
   dt: number,
   config: GameConfig,
   zone: Rect,
+  speed = config.ai.speed,
 ): Paddle {
   const dx = target.x - paddle.pos.x;
   const dy = target.y - paddle.pos.y;
   const dist = Math.hypot(dx, dy);
-  const maxMove = config.ai.speed * dt; // Player も同じ速度上限を適用
+  const maxMove = speed * dt;
 
   let newPos;
   if (dist <= maxMove || dist < 0.001) {

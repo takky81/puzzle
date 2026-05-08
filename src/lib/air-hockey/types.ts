@@ -62,8 +62,8 @@ export type GameState = {
   score: { p1: number; p2: number };
   phase: 'countdown' | 'playing' | 'grabbed' | 'goal' | 'paused' | 'finished';
   countdownValue: 3 | 2 | 1 | 0;
-  goalTimer: number;
   countdownTimer: number;
+  goalTimer: number;
   lastScorer: 1 | 2 | null;
   winner: 1 | 2 | null;
   config: GameConfig;

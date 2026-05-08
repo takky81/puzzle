@@ -221,6 +221,13 @@ describe('updateGame — playing フェーズ', () => {
     const next = updateGame(state, 0.1, { p1: farBelowInput, p2: noInput });
     expect(next.player1.pos.y).toBeLessThan(field.height - field.goalDepth);
   });
+  test('Player 1 パドルは速度制限なく入力位置に即座に移動する（dt が小さくても到達）', () => {
+    const state = playingState();
+    const farTarget = { paddleTarget: { x: 50, y: 520 }, grabbing: false };
+    const next = updateGame(state, 0.001, { p1: farTarget, p2: noInput });
+    expect(next.player1.pos.x).toBeCloseTo(50);
+    expect(next.player1.pos.y).toBeCloseTo(520);
+  });
   test('Player 2 パドルは自コート（上半分）の上端より外に出ない', () => {
     const state = playingState();
     const p2Input = { paddleTarget: { x: 200, y: -50 }, grabbing: false };
@@ -288,9 +295,9 @@ describe('updateGame — grabbed フェーズ', () => {
 });
 
 // ── updateGame — goal フェーズ ────────────────────────────────────────────────
-// 仕様: ゴール後 0.5 秒間演出を表示し、countdown フェーズでリセットする。
+// 仕様: ゴール後 0.5 秒間演出を表示し、playing フェーズへ直接戻る（カウントダウンなし）。
 //       goal フェーズ中もパドルは操作可能。
-//       lastScorer を使ってパックを正しいコートにリセットする。
+//       lastScorer を使ってパックを正しい位置にリセットする。
 
 describe('updateGame — goal フェーズ', () => {
   const config = defaultConfig();
@@ -312,15 +319,15 @@ describe('updateGame — goal フェーズ', () => {
     const next = updateGame(state, 0.1, { p1: noInput, p2: noInput });
     expect(next.goalTimer).toBeCloseTo(0.1);
   });
-  test('0.5 秒経過後に countdown フェーズへ遷移する', () => {
+  test('0.5 秒経過後に playing フェーズへ遷移する', () => {
     const state = goalState();
     const next = updateGame(state, 0.6, { p1: noInput, p2: noInput });
-    expect(next.phase).toBe('countdown');
+    expect(next.phase).toBe('playing');
   });
-  test('0.5 秒経過後に lastScorer=2（Player 2 得点）のコートへパックがリセットされる', () => {
+  test('0.5 秒経過後にパックがセンターライン（y=height/2）にリセットされる', () => {
     const state = goalState({ p1: 0, p2: 1 });
     const next = updateGame(state, 0.6, { p1: noInput, p2: noInput });
-    expect(next.puck.pos.y).toBeGreaterThan(field.height / 2);
+    expect(next.puck.pos.y).toBeCloseTo(field.height / 2);
   });
   test('goal フェーズ中もパドルは操作可能', () => {
     const state = goalState();
@@ -365,22 +372,24 @@ describe('updateGame — paused フェーズ', () => {
 });
 
 // ── resetPuck ─────────────────────────────────────────────────────────────────
-// 仕様: 得点した側のコートにパックをリセットする。
-//       パックは「得点された側」のコートに置かれ、その側へ向かう方向に発射される。
+// 仕様: 得点後、パックはセンターライン（y=height/2）の左端か右端（ランダム）に置かれる。
+//       発射方向は得点された側（scoredAgainst）へ向かう。
 
 describe('resetPuck', () => {
   const config = defaultConfig();
   const field = makeField(config);
 
-  test('Player 1 が得点したとき、パックが Player 2 コート（上半分）に配置される', () => {
-    const next = resetPuck(createInitialState('vs-ai', config), 1);
-    expect(next.puck.pos.x).toBe(field.width / 2);
-    expect(next.puck.pos.y).toBeLessThan(field.height / 2);
+  test('得点後、パックは y=height/2（センターライン）に配置される', () => {
+    const p1scored = resetPuck(createInitialState('vs-ai', config), 1);
+    const p2scored = resetPuck(createInitialState('vs-ai', config), 2);
+    expect(p1scored.puck.pos.y).toBeCloseTo(field.height / 2);
+    expect(p2scored.puck.pos.y).toBeCloseTo(field.height / 2);
   });
-  test('Player 2 が得点したとき、パックが Player 1 コート（下半分）に配置される', () => {
-    const next = resetPuck(createInitialState('vs-ai', config), 2);
-    expect(next.puck.pos.x).toBe(field.width / 2);
-    expect(next.puck.pos.y).toBeGreaterThan(field.height / 2);
+  test('パックは左端（x=puckRadius）か右端（x=width-puckRadius）のどちらかに配置される', () => {
+    const next = resetPuck(createInitialState('vs-ai', config), 1);
+    const leftX = config.puckRadius;
+    const rightX = field.width - config.puckRadius;
+    expect(next.puck.pos.x === leftX || next.puck.pos.x === rightX).toBe(true);
   });
   test('リセット後のパック速度は puckInitialSpeed と一致する', () => {
     const next = resetPuck(createInitialState('vs-ai', config), 1);
@@ -390,9 +399,8 @@ describe('resetPuck', () => {
     const next = resetPuck(createInitialState('vs-ai', config), 1);
     expect(next.puck.vel.y).toBeLessThan(0);
   });
-  test('リセット後のフェーズは countdown に戻る', () => {
+  test('リセット後のフェーズは playing に戻る', () => {
     const next = resetPuck(createInitialState('vs-ai', config), 1);
-    expect(next.phase).toBe('countdown');
-    expect(next.countdownValue).toBe(3);
+    expect(next.phase).toBe('playing');
   });
 });

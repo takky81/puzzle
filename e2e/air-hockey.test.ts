@@ -106,7 +106,7 @@ test.describe('エアホッケー', () => {
   test('一時停止ボタンでポーズできる（再開ボタンが出る）', async ({ page }) => {
     await page.locator('button', { hasText: 'vs AI' }).click();
     await page.locator('button', { hasText: 'ノーマル' }).click();
-    // countdown フェーズを待ってから pause（playing になるまで少し待つ）
+    // カウントダウン（3秒）が終わり playing フェーズになるまで待つ
     await page.waitForTimeout(3500);
     await page.locator('button', { hasText: '一時停止' }).click();
     await expect(page.locator('button', { hasText: '再開' })).toBeVisible();
