@@ -6,7 +6,7 @@ import {
   collidePaddlePuck,
   clampPaddleToZone,
 } from './physics';
-import type { Puck, Paddle, Field, GameConfig } from './types';
+import type { Puck, Paddle, Field, GameConfig, Vec2 } from './types';
 
 const defaultConfig: GameConfig = {
   puckRadius: 18,
@@ -187,6 +187,7 @@ describe('reflectGoalposts', () => {
 //       パドルの速度もパックに転送される（スマッシュ可能）。
 //       衝突後にパドルとパックが重ならない位置に押し出す。
 //       衝突後の速度は最大 800px/s に制限する。反発係数を適用する。
+//       CCD: パドルが1フレームでパックをすり抜けた場合も衝突を検出する（prevPaddlePos を渡す）。
 
 describe('collidePaddlePuck', () => {
   test('パドルとパックが重なっていない場合は速度が変化しない', () => {
@@ -233,6 +234,64 @@ describe('collidePaddlePuck', () => {
     const puck = makePuck(200, 448, 0, 100);
     const { puck: result } = collidePaddlePuck(paddle, puck, config);
     expect(result.vel.y).toBeCloseTo(-100 * 0.5, 0);
+  });
+
+  // CCD（連続衝突検出）テストリスト:
+  test('パドルがパックをすり抜けた場合（CCD）も衝突を検出しパックに速度を与える', () => {
+    // Arrange: パドルが x=100→300 に瞬間移動、パックは x=200 に静止
+    // dist(300, 200) = 100 > 53(minDist) → 通常判定ではすり抜け
+    const dt = 1 / 60;
+    const prevPaddlePos: Vec2 = { x: 100, y: 300 };
+    const paddle = makePaddle(300, 300, 200 / dt, 0);
+    const puck = makePuck(200, 300, 0, 0);
+
+    // Act
+    const result = collidePaddlePuck(paddle, puck, defaultConfig, prevPaddlePos);
+
+    // Assert: CCD でパドル経路がパックを通過したことを検出し速度が加わる
+    expect(Math.abs(result.puck.vel.x)).toBeGreaterThan(0);
+  });
+  test('パドルが遠くを通過した場合は CCD で誤検出しない', () => {
+    // パドルが x=100→300 を通過するが、パックは y=500（経路から十分離れている）
+    const dt = 1 / 60;
+    const prevPaddlePos: Vec2 = { x: 100, y: 300 };
+    const paddle = makePaddle(300, 300, 200 / dt, 0);
+    const puck = makePuck(200, 500, 0, 0); // y=500 は経路 y=300 から 200px 離れている
+
+    const result = collidePaddlePuck(paddle, puck, defaultConfig, prevPaddlePos);
+
+    expect(result.puck.vel.x).toBe(0);
+    expect(result.puck.vel.y).toBe(0);
+  });
+
+  test('prevPaddlePos なしの場合は従来の位置ベース判定のみが働く（すり抜けは検出しない）', () => {
+    // prevPaddlePos なし → CCD なし → すり抜けは検出されない
+    const dt = 1 / 60;
+    const paddle = makePaddle(300, 300, 200 / dt, 0);
+    const puck = makePuck(200, 300, 0, 0);
+
+    const result = collidePaddlePuck(paddle, puck, defaultConfig); // prevPaddlePos 省略
+
+    // dist(300,200)=100 > 53 なので通常判定でも CCD でも反応なし
+    expect(result.puck.vel.x).toBe(0);
+  });
+
+  test('高速パックとAIパドルが互いに向かって移動し完全すり抜けした場合も prevPuckPos 付き CCD で検出する', () => {
+    // Scenario: パックが y=160 (AI パドル下) から y=120 に移動, AI パドルが y=100 から y=125 に移動
+    // 相対接近量 = 40+25 = 65px > minDist=53px → パックがパドルを通過してしまう
+    // 通常判定: dist=5 < 53 だが relVelN = (-800-500)*(-1) = 1300 > 0 → 反応なし
+    // CCD (prevPuckPos 付き): パックの経路から衝突を正しく検出できる
+    const prevPaddlePos: Vec2 = { x: 200, y: 100 };
+    const prevPuckPos: Vec2 = { x: 200, y: 160 };
+    const paddle = makePaddle(200, 125, 0, 500); // AI パドルが下向きに移動
+    const puck = makePuck(200, 120, 0, -800); // パックが上向きに移動
+
+    const result = collidePaddlePuck(paddle, puck, defaultConfig, prevPaddlePos, prevPuckPos);
+
+    expect(result.puck.vel.y).toBeGreaterThan(0); // 反射された（-800 → 正）
+    // 位置補正: パックは衝突法線方向（パドルの下側）に押し出されるべき
+    // 間違った補正だと y=72（パドル y=125 より上）になってしまう
+    expect(result.puck.pos.y).toBeGreaterThan(125); // パドル(y=125)の下側 = y > 125
   });
 });
 

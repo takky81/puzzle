@@ -194,6 +194,9 @@ function updatePlaying(
   }
 
   const p2Speed = state.mode === 'vs-ai' ? state.config.ai.speed : Infinity;
+  // CCD 用に移動前の位置を保存
+  const p1PrevPos = state.player1.pos;
+  const p2PrevPos = state.player2.pos;
   const player1 = movePaddleToward(
     state.player1,
     inputs.p1.paddleTarget,
@@ -212,9 +215,10 @@ function updatePlaying(
   );
 
   // パック物理
+  const puckPrevPos = state.puck.pos;
   let puck = movePuck(state.puck, dt, state.config);
-  ({ puck } = collidePaddlePuck(player1, puck, state.config));
-  ({ puck } = collidePaddlePuck(player2, puck, state.config));
+  ({ puck } = collidePaddlePuck(player1, puck, state.config, p1PrevPos, puckPrevPos));
+  ({ puck } = collidePaddlePuck(player2, puck, state.config, p2PrevPos, puckPrevPos));
   puck = reflectGoalposts(puck, field, state.config);
   const { puck: reflected, goal } = reflectWalls(puck, field, state.config);
   puck = reflected;
@@ -380,13 +384,14 @@ function movePaddleToward(
     };
   }
 
-  const vel = {
-    x: (newPos.x - paddle.pos.x) / dt,
-    y: (newPos.y - paddle.pos.y) / dt,
+  const clamped = clampPaddleToZone({ ...paddle, pos: newPos, vel: { x: 0, y: 0 } }, zone);
+  return {
+    ...clamped,
+    vel: {
+      x: (clamped.pos.x - paddle.pos.x) / dt,
+      y: (clamped.pos.y - paddle.pos.y) / dt,
+    },
   };
-
-  const clamped = clampPaddleToZone({ ...paddle, pos: newPos, vel }, zone);
-  return clamped;
 }
 
 function randomPuckVelocity(config: GameConfig, directionSign: 1 | -1) {

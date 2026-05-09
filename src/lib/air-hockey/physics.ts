@@ -1,4 +1,4 @@
-import type { Puck, Paddle, Field, GameConfig, Rect } from './types';
+import type { Puck, Paddle, Field, GameConfig, Rect, Vec2 } from './types';
 
 const MAX_SPEED = 800;
 const MAX_DT = 0.05;
@@ -114,11 +114,63 @@ export function collidePaddlePuck(
   paddle: Paddle,
   puck: Puck,
   config: GameConfig,
+  prevPaddlePos?: Vec2,
+  prevPuckPos?: Vec2,
 ): { paddle: Paddle; puck: Puck } {
+  const minDist = paddle.radius + puck.radius;
+
+  // CCD: パドルまたはパックが今フレームに相手をすり抜けたか判定
+  if (prevPaddlePos || prevPuckPos) {
+    const paddleStart = prevPaddlePos ?? paddle.pos;
+    const puckStart = prevPuckPos ?? puck.pos;
+    const t = sweptCircleContact(paddleStart, paddle.pos, puckStart, puck.pos, minDist);
+    if (t !== null) {
+      // 接触時刻 t における両オブジェクトの位置から衝突法線を算出
+      const paddleAtT = {
+        x: paddleStart.x + t * (paddle.pos.x - paddleStart.x),
+        y: paddleStart.y + t * (paddle.pos.y - paddleStart.y),
+      };
+      const puckAtT = {
+        x: puckStart.x + t * (puck.pos.x - puckStart.x),
+        y: puckStart.y + t * (puck.pos.y - puckStart.y),
+      };
+      const cdx = puckAtT.x - paddleAtT.x;
+      const cdy = puckAtT.y - paddleAtT.y;
+      const cdist = Math.hypot(cdx, cdy);
+      if (cdist < 0.001) return { paddle, puck };
+      const nx = cdx / cdist;
+      const ny = cdy / cdist;
+
+      const relVx = puck.vel.x - paddle.vel.x;
+      const relVy = puck.vel.y - paddle.vel.y;
+      const relVelN = relVx * nx + relVy * ny;
+      if (relVelN >= 0) return { paddle, puck };
+
+      const impulse = -(1 + config.restitution) * relVelN;
+      let newVx = puck.vel.x + impulse * nx;
+      let newVy = puck.vel.y + impulse * ny;
+      const speed = Math.hypot(newVx, newVy);
+      if (speed > MAX_SPEED) {
+        const scale = MAX_SPEED / speed;
+        newVx *= scale;
+        newVy *= scale;
+      }
+
+      // フレーム末に重なっている場合、CCD 法線方向（衝突時の正しい側）にパックを押し出す
+      const finalDist = Math.hypot(puck.pos.x - paddle.pos.x, puck.pos.y - paddle.pos.y);
+      const pos =
+        finalDist < minDist
+          ? { x: paddle.pos.x + nx * minDist, y: paddle.pos.y + ny * minDist }
+          : puck.pos;
+
+      return { paddle, puck: { ...puck, pos, vel: { x: newVx, y: newVy } } };
+    }
+  }
+
+  // 位置ベース判定（通常の重なり検出）
   const dx = puck.pos.x - paddle.pos.x;
   const dy = puck.pos.y - paddle.pos.y;
   const dist = Math.hypot(dx, dy);
-  const minDist = paddle.radius + puck.radius;
 
   if (dist >= minDist || dist < 0.001) {
     return { paddle, puck };
@@ -155,6 +207,33 @@ export function collidePaddlePuck(
       vel: { x: newVx, y: newVy },
     },
   };
+}
+
+// 2つの円 a=[aStart→aEnd], b=[bStart→bEnd] が半径 minDist まで接近する
+// 最初の正規化時刻 t ∈ [0,1] を返す。接触しない場合は null。
+function sweptCircleContact(
+  aStart: Vec2,
+  aEnd: Vec2,
+  bStart: Vec2,
+  bEnd: Vec2,
+  minDist: number,
+): number | null {
+  const Px = aStart.x - bStart.x;
+  const Py = aStart.y - bStart.y;
+  const Qx = aEnd.x - aStart.x - (bEnd.x - bStart.x);
+  const Qy = aEnd.y - aStart.y - (bEnd.y - bStart.y);
+
+  const a = Qx * Qx + Qy * Qy;
+  const b = Px * Qx + Py * Qy;
+  const c = Px * Px + Py * Py - minDist * minDist;
+
+  if (a < 1e-10) return null;
+
+  const disc = b * b - a * c;
+  if (disc < 0) return null;
+
+  const t = (-b - Math.sqrt(disc)) / a;
+  return t >= 0 && t <= 1 ? t : null;
 }
 
 export function clampPaddleToZone(paddle: Paddle, zone: Rect): Paddle {

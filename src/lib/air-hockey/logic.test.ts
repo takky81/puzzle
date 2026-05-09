@@ -228,6 +228,48 @@ describe('updateGame — playing フェーズ', () => {
     expect(next.player1.pos.x).toBeCloseTo(50);
     expect(next.player1.pos.y).toBeCloseTo(520);
   });
+  test('Player 1 パドルが瞬間移動してパックをすり抜けた場合も CCD で衝突を検出する', () => {
+    // パドルが x=100→300 に瞬間移動、パックは x=200 に静止（経路上）
+    const state = {
+      ...playingState(),
+      player1: { pos: { x: 100, y: 520 }, vel: { x: 0, y: 0 }, radius: 35 },
+      puck: { pos: { x: 200, y: 520 }, vel: { x: 0, y: 0 }, radius: 18 },
+    };
+    const p1Input = { paddleTarget: { x: 300, y: 520 }, grabbing: false };
+    const next = updateGame(state, 0.016, { p1: p1Input, p2: noInput });
+    // 通常判定: dist(300,200)=100 > 53 → 検出されない
+    // CCD: パドル経路がパックを通過 → 速度が加わる
+    expect(Math.abs(next.puck.vel.x)).toBeGreaterThan(0);
+  });
+
+  test('パドルがゾーン境界でクランプされてもパックとの衝突が正しく処理される', () => {
+    // AI パドルがゾーン下端（y=265）にクランプされ、ターゲットがゾーン外（y=300）の場合
+    // 修正前: paddle.vel.y=350（ゾーン外方向）が設定され relVelN>0 になり衝突無視→パックが沈み込む
+    const config = defaultConfig();
+    const p2ZoneBottom = field.height / 2 - config.paddleRadius; // 265
+    const minDist = config.paddleRadius + config.puckRadius; // 53
+    const state = {
+      ...playingState(),
+      player2: {
+        pos: { x: 200, y: p2ZoneBottom },
+        vel: { x: 0, y: 0 },
+        radius: config.paddleRadius,
+      },
+      puck: {
+        pos: { x: 200, y: p2ZoneBottom - minDist + 10 }, // パドルに 10px 重なっている（y=222）
+        vel: { x: 0, y: 200 }, // パドル方向（下向き）に移動中
+        radius: config.puckRadius,
+      },
+    };
+    const p2Input = { paddleTarget: { x: 200, y: field.height / 2 }, grabbing: false }; // ゾーン外ターゲット
+    const next = updateGame(state, 0.016, { p1: noInput, p2: p2Input });
+    const dist = Math.hypot(
+      next.puck.pos.x - next.player2.pos.x,
+      next.puck.pos.y - next.player2.pos.y,
+    );
+    expect(dist).toBeGreaterThanOrEqual(minDist - 0.01);
+  });
+
   test('Player 2 パドルは自コート（上半分）の上端より外に出ない', () => {
     const state = playingState();
     const p2Input = { paddleTarget: { x: 200, y: -50 }, grabbing: false };
