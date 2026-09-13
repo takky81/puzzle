@@ -1,7 +1,7 @@
 <script lang="ts">
   import { browser } from '$app/environment';
   import { decideAction, decideDiscards } from '$lib/poker/ai';
-  import { describeHand, evaluateHand, rankLabel } from '$lib/poker/hand';
+  import { describeHand, evaluateHand, rankLabel, sortedHandIndices } from '$lib/poker/hand';
   import {
     AI_LEVELS,
     anteOptions,
@@ -105,6 +105,42 @@
   let revealAi = $derived(
     game.phase === 'showdown' || (game.lastResult !== null && !game.lastResult.byFold),
   );
+  /** 役が読みやすい並び順（値は元のインデックス） */
+  let humanCardOrder = $derived(
+    game.players.human.hand.length === 0 ? [] : sortedHandIndices([...game.players.human.hand]),
+  );
+  let aiCardOrder = $derived(
+    game.players.ai.hand.length === 0 ? [] : sortedHandIndices([...game.players.ai.hand]),
+  );
+  let winner = $derived(game.lastResult?.winner ?? null);
+  let outcome = $derived.by(() => {
+    const result = game.lastResult;
+    if (result === null) return null;
+    if (result.winner === null) return 'draw';
+    return result.winner === 'human' ? 'win' : 'lose';
+  });
+  let resultHeadline = $derived.by(() => {
+    switch (outcome) {
+      case 'win':
+        return '🎉 あなたの勝ち！';
+      case 'lose':
+        return '😢 AIの勝ち';
+      case 'draw':
+        return '🤝 引き分け';
+      default:
+        return '';
+    }
+  });
+  /** このハンドの収支（ラウンド中のベットも込み） */
+  let humanDelta = $derived(
+    game.players.human.chips + game.players.human.bet - game.handStartChips.human,
+  );
+  let aiDelta = $derived(game.players.ai.chips + game.players.ai.bet - game.handStartChips.ai);
+  let aiRankText = $derived(
+    !revealAi || game.players.ai.hand.length === 0
+      ? ''
+      : describeHand(evaluateHand([...game.players.ai.hand])),
+  );
   let humanRankText = $derived(
     game.players.human.hand.length === 0
       ? ''
@@ -113,19 +149,16 @@
   let resultText = $derived.by(() => {
     const result = game.lastResult;
     if (result === null) return '';
-    const delta = result.delta.human;
-    const sign = delta > 0 ? `+${delta}` : `${delta}`;
     if (result.byFold) {
-      return result.winner === 'human'
-        ? `AIがフォールド。あなたの勝ち（${sign}）`
-        : `あなたがフォールド（${sign}）`;
+      return result.winner === 'human' ? 'AIがフォールド' : 'あなたがフォールド';
     }
-    if (result.winner === null) return `引き分け（${sign}）`;
-    const hands = `あなた: ${describeHand(result.humanRank!)} / AI: ${describeHand(result.aiRank!)}`;
-    return result.winner === 'human'
-      ? `あなたの勝ち！ ${hands}（${sign}）`
-      : `AIの勝ち… ${hands}（${sign}）`;
+    return result.bySplit ? '同じ役で引き分け' : 'ショーダウンで決着';
   });
+
+  /** 増減を +/- 付きの文字列にする */
+  function signed(value: number): string {
+    return value > 0 ? `+${value}` : `${value}`;
+  }
 
   function isRed(card: Card): boolean {
     return card.suit === 'heart' || card.suit === 'diamond';
@@ -358,10 +391,20 @@
 {:else}
   <section class="mx-auto flex max-w-[520px] flex-col gap-3">
     <!-- AIエリア -->
-    <div class="rounded-xl bg-white p-3 shadow-md">
+    <div
+      class="rounded-xl bg-white p-3 shadow-md transition-all"
+      class:ring-4={winner === 'ai'}
+      class:ring-red-500={winner === 'ai'}
+    >
       <div class="mb-2 flex items-center justify-between">
         <span class="font-bold">
           🤖 AI（{aiLevelLabels[game.config.aiLevel]}）
+          {#if winner === 'ai'}
+            <span
+              class="ml-1 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
+              data-testid="ai-winner-badge">WIN</span
+            >
+          {/if}
           {#if game.dealer === 'ai'}
             <span class="ml-1 rounded-full bg-primary px-2 py-0.5 text-xs text-white">D</span>
           {/if}
@@ -371,12 +414,13 @@
         </span>
       </div>
       <div class="flex justify-center gap-1" data-testid="ai-hand">
-        {#each game.players.ai.hand as card, i (i)}
-          {@render cardView(card, revealAi, false, false, () => {})}
+        {#each aiCardOrder as index (index)}
+          {@render cardView(game.players.ai.hand[index], revealAi, false, false, () => {})}
         {/each}
       </div>
+      <p class="mt-2 text-center text-sm font-bold" data-testid="ai-rank">{aiRankText}</p>
       {#if game.players.ai.bet > 0}
-        <p class="mt-2 text-center text-sm">ベット {game.players.ai.bet}</p>
+        <p class="text-center text-sm">ベット {game.players.ai.bet}</p>
       {/if}
       {#if aiMessage !== ''}
         <p class="mt-2 text-center text-sm font-bold text-primary" data-testid="ai-message">
@@ -386,19 +430,40 @@
     </div>
 
     <!-- ポットエリア -->
-    <div class="rounded-xl bg-green-800 p-3 text-center text-white shadow-md">
+    <div
+      class="rounded-xl p-3 text-center text-white shadow-md transition-colors"
+      class:bg-green-800={outcome === null || outcome === 'draw'}
+      class:bg-red-600={outcome === 'win'}
+      class:bg-blue-700={outcome === 'lose'}
+      data-testid="pot-area"
+    >
       <p class="text-xs opacity-80">{phaseLabel}</p>
       <p class="text-2xl font-bold" data-testid="pot">ポット {game.pot}</p>
-      {#if game.lastResult !== null}
-        <p class="mt-1 text-sm" data-testid="result-text">{resultText}</p>
+      <div class="mt-1 flex justify-center gap-4 text-sm font-bold">
+        <span data-testid="human-delta">あなた {signed(humanDelta)}</span>
+        <span data-testid="ai-delta">AI {signed(aiDelta)}</span>
+      </div>
+      {#if outcome !== null}
+        <p class="mt-1 text-lg font-bold" data-testid="result-headline">{resultHeadline}</p>
+        <p class="text-xs opacity-90" data-testid="result-text">{resultText}</p>
       {/if}
     </div>
 
     <!-- プレイヤーエリア -->
-    <div class="rounded-xl bg-white p-3 shadow-md">
+    <div
+      class="rounded-xl bg-white p-3 shadow-md transition-all"
+      class:ring-4={winner === 'human'}
+      class:ring-green-500={winner === 'human'}
+    >
       <div class="mb-2 flex items-center justify-between">
         <span class="font-bold">
           🙂 あなた
+          {#if winner === 'human'}
+            <span
+              class="ml-1 rounded-full bg-green-600 px-2 py-0.5 text-xs text-white"
+              data-testid="human-winner-badge">WIN</span
+            >
+          {/if}
           {#if game.dealer === 'human'}
             <span class="ml-1 rounded-full bg-primary px-2 py-0.5 text-xs text-white">D</span>
           {/if}
@@ -408,8 +473,14 @@
         </span>
       </div>
       <div class="flex justify-center gap-1" data-testid="human-hand">
-        {#each game.players.human.hand as card, i (i)}
-          {@render cardView(card, true, canExchange, selected.includes(i), () => toggleCard(i))}
+        {#each humanCardOrder as index (index)}
+          {@render cardView(
+            game.players.human.hand[index],
+            true,
+            canExchange,
+            selected.includes(index),
+            () => toggleCard(index),
+          )}
         {/each}
       </div>
       <p class="mt-2 text-center text-sm font-bold" data-testid="human-rank">{humanRankText}</p>

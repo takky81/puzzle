@@ -193,6 +193,78 @@ test.describe('ポーカー', () => {
     await expect(page.getByText(/ハンド 2 \//)).toBeVisible();
   });
 
+  test('ハンド終了時に勝敗が見出しで表示される', async ({ page }) => {
+    await startGame(page);
+
+    await playUntilHandEnd(page);
+
+    await expect(page.getByTestId('result-headline')).toHaveText(
+      /あなたの勝ち！|AIの勝ち|引き分け/,
+    );
+  });
+
+  test('勝った側にWINバッジが表示される', async ({ page }) => {
+    await startGame(page);
+    await playUntilHandEnd(page);
+
+    const headline = await page.getByTestId('result-headline').textContent();
+    if (headline?.includes('あなたの勝ち')) {
+      await expect(page.getByTestId('human-winner-badge')).toBeVisible();
+      await expect(page.getByTestId('ai-winner-badge')).toHaveCount(0);
+    } else if (headline?.includes('AIの勝ち')) {
+      await expect(page.getByTestId('ai-winner-badge')).toBeVisible();
+      await expect(page.getByTestId('human-winner-badge')).toHaveCount(0);
+    } else {
+      await expect(page.getByTestId('human-winner-badge')).toHaveCount(0);
+      await expect(page.getByTestId('ai-winner-badge')).toHaveCount(0);
+    }
+  });
+
+  test('ハンド終了時に両者の役がそれぞれの手札の下に表示される', async ({ page }) => {
+    await startGame(page);
+    await playUntilHandEnd(page);
+
+    // フォールド決着では相手の手札を公開しない
+    const byFold = (await page.getByTestId('result-text').textContent())?.includes('フォールド');
+    await expect(page.getByTestId('human-rank')).not.toBeEmpty();
+    if (byFold === false) {
+      await expect(page.getByTestId('ai-rank')).not.toBeEmpty();
+    }
+  });
+
+  test('ポットのところに両者のそのハンドの収支が表示される', async ({ page }) => {
+    await startGame(page);
+
+    // アンティを払った直後は両者 -10
+    await expect(page.getByTestId('human-delta')).toHaveText('あなた -10');
+    await expect(page.getByTestId('ai-delta')).toHaveText('AI -10');
+  });
+
+  test('勝つと結果表示が赤、負けると青になる', async ({ page }) => {
+    await startGame(page);
+    await playUntilHandEnd(page);
+
+    const headline = await page.getByTestId('result-headline').textContent();
+    const potArea = page.getByTestId('pot-area');
+    if (headline?.includes('あなたの勝ち')) {
+      await expect(potArea).toHaveClass(/bg-red-600/);
+    } else if (headline?.includes('AIの勝ち')) {
+      await expect(potArea).toHaveClass(/bg-blue-700/);
+    } else {
+      await expect(potArea).toHaveClass(/bg-green-800/);
+    }
+  });
+
+  test('手札はスートとランクが読める形で5枚表示される', async ({ page }) => {
+    await startGame(page);
+
+    const labels = await page.getByTestId('human-hand').getByRole('button').allInnerTexts();
+    expect(labels).toHaveLength(5);
+    for (const label of labels) {
+      expect(label).toMatch(/[♠♥♦♣]/);
+    }
+  });
+
   test('ノーリミットではベット額のスライダーが表示される', async ({ page }) => {
     await page.getByRole('button', { name: /ノーリミット/ }).click();
     await startGame(page);

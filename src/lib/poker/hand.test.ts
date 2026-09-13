@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { compareHands, describeHand, evaluateHand } from './hand';
+import { compareHands, describeHand, evaluateHand, sortedHandIndices } from './hand';
 import { cards } from '../../tests/pokerCards';
 
 // テストリスト（Step 1: List）
@@ -176,5 +176,63 @@ describe('describeHand', () => {
     expect(describeHand(evaluateHand(cards('9s 8s 7s 6s 5s')))).toBe(
       'ストレートフラッシュ（9ハイ）',
     );
+  });
+});
+
+// テストリスト（Step 1: List）
+// 役が一目でわかるように手札を並び替える
+
+describe('sortedHandIndices', () => {
+  /** 並び替え後の手札を 'Ks Kh ...' の表記で返す */
+  const sorted = (notation: string): string => {
+    const hand = cards(notation);
+    const labels = notation.split(/\s+/);
+    return sortedHandIndices(hand)
+      .map((i) => labels[i])
+      .join(' ');
+  };
+
+  test('元のインデックスを重複なく5個返す', () => {
+    // Arrange
+    const hand = cards('9d Ks 3s Qh 7c');
+
+    // Act
+    const indices = sortedHandIndices(hand);
+
+    // Assert
+    expect(indices).toHaveLength(5);
+    expect([...indices].sort()).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  test('ワンペアはペアが先頭に来る', () => {
+    expect(sorted('7d Ks 3s Kh 9c')).toBe('Ks Kh 9c 7d 3s');
+  });
+
+  test('ツーペアは上位ペア→下位ペア→キッカーの順になる', () => {
+    expect(sorted('9d Ks 3s Kh 9c')).toBe('Ks Kh 9d 9c 3s');
+  });
+
+  test('スリーカードは3枚が先頭に来る', () => {
+    expect(sorted('3s Kd 9c Ks Kh')).toBe('Kd Ks Kh 9c 3s');
+  });
+
+  test('フルハウスは3枚→2枚の順になる', () => {
+    expect(sorted('9d Ks Kh 9c Kd')).toBe('Ks Kh Kd 9d 9c');
+  });
+
+  test('フォーカードは4枚→キッカーの順になる', () => {
+    expect(sorted('Kd 9s Ks Kc Kh')).toBe('Kd Ks Kc Kh 9s');
+  });
+
+  test('ハイカードはランクの降順になる', () => {
+    expect(sorted('9d Ks 3s Qh 7c')).toBe('Ks Qh 9d 7c 3s');
+  });
+
+  test('ストレートはランクの降順になる', () => {
+    expect(sorted('5s 9s 8h 6c 7d')).toBe('9s 8h 7d 6c 5s');
+  });
+
+  test('A-2-3-4-5 のストレートは 5-4-3-2-A の順になる', () => {
+    expect(sorted('Ah 2s 3d 4c 5s')).toBe('5s 4c 3d 2s Ah');
   });
 });

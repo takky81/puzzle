@@ -133,3 +133,29 @@ export function describeHand(rank: HandRank): string {
       return `${name}（${rankLabel(first)}）`;
   }
 }
+
+/**
+ * 役が一目でわかるように手札を並べ替えたときの、元のインデックスの並びを返す。
+ * 同ランクのカードをまとめて前に置き、同じ枚数どうしはランクの降順にする。
+ * A-2-3-4-5 のストレートだけは A を最後に置く（5ハイとして読めるようにする）。
+ */
+export function sortedHandIndices(cards: Card[]): number[] {
+  const { category, tiebreak } = evaluateHand(cards);
+  const isWheel = (category === 'straight' || category === 'straightFlush') && tiebreak[0] === 5;
+
+  const counts = new Map<Rank, number>();
+  for (const { rank } of cards) counts.set(rank, (counts.get(rank) ?? 0) + 1);
+
+  /** 並び順の重み（大きいほど前）。5ハイストレートのAだけ最後に回す */
+  const weightOf = (rank: Rank): number => (isWheel && rank === 14 ? 1 : rank);
+
+  return cards
+    .map((card, index) => ({ card, index }))
+    .sort(
+      (a, b) =>
+        (counts.get(b.card.rank) ?? 0) - (counts.get(a.card.rank) ?? 0) ||
+        weightOf(b.card.rank) - weightOf(a.card.rank) ||
+        a.index - b.index,
+    )
+    .map(({ index }) => index);
+}
