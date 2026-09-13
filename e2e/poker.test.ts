@@ -273,6 +273,24 @@ test.describe('ポーカー', () => {
     await expect(page.getByRole('button', { name: 'オールイン' })).toBeVisible();
   });
 
+  test('ベット額のスライダーは10刻みである', async ({ page }) => {
+    await page.getByRole('button', { name: /ノーリミット/ }).click();
+    await startGame(page);
+
+    await expect(page.getByLabel(/ベット額/)).toHaveAttribute('step', '10');
+  });
+
+  test('ポットのショートカットも10刻みの額になる', async ({ page }) => {
+    await page.getByRole('button', { name: /ノーリミット/ }).click();
+    await startGame(page);
+
+    await page.getByRole('button', { name: 'ポット', exact: true }).click();
+
+    const label = await page.getByText(/^ベット額: /).textContent();
+    const amount = Number(label?.replace(/[^0-9]/g, ''));
+    expect(amount % 10).toBe(0);
+  });
+
   test('フィックスドリミットではスライダーが表示されない', async ({ page }) => {
     await startGame(page);
 

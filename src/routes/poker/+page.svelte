@@ -85,6 +85,14 @@
   /** AIの思考中に見せる待ち時間（ミリ秒） */
   const AI_THINK_MS = 700;
 
+  /** ノーリミットのベット額スライダーの刻み */
+  const BET_SLIDER_STEP = 10;
+
+  /** ショートカットのベット額も刻みに合わせる */
+  function toStep(value: number): number {
+    return Math.max(legal.minRaiseTo, Math.floor(value / BET_SLIDER_STEP) * BET_SLIDER_STEP);
+  }
+
   const rng = () => Math.random();
 
   let screen: Screen = $state('setup');
@@ -101,6 +109,10 @@
   let canExchange = $derived(nextDrawer(game) === 'human');
   let potTotal = $derived(game.pot + game.players.human.bet + game.players.ai.bet);
   let betAmount = $derived(Math.min(Math.max(betTo, legal.minRaiseTo), legal.maxRaiseTo));
+  /** ベット額スライダーの刻み（動かせる幅が10未満のときはその幅に合わせる） */
+  let betStep = $derived(
+    Math.max(1, Math.min(BET_SLIDER_STEP, legal.maxRaiseTo - legal.minRaiseTo)),
+  );
   let phaseLabel = $derived(phaseLabels[game.phase]);
   let revealAi = $derived(
     game.phase === 'showdown' || (game.lastResult !== null && !game.lastResult.byFold),
@@ -512,20 +524,21 @@
               class="w-full"
               min={legal.minRaiseTo}
               max={legal.maxRaiseTo}
+              step={betStep}
               bind:value={betTo}
             />
             <div class="mt-2 flex gap-2">
               <button
                 type="button"
                 class="flex-1 rounded-lg border-2 border-gray-200 px-2 py-1 text-sm font-bold"
-                onclick={() => (betTo = Math.floor(potTotal / 2))}
+                onclick={() => (betTo = toStep(potTotal / 2))}
               >
                 1/2ポット
               </button>
               <button
                 type="button"
                 class="flex-1 rounded-lg border-2 border-gray-200 px-2 py-1 text-sm font-bold"
-                onclick={() => (betTo = potTotal)}
+                onclick={() => (betTo = toStep(potTotal))}
               >
                 ポット
               </button>
