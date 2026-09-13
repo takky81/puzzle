@@ -132,12 +132,12 @@ test.describe('ポーカー', () => {
     await expect(page.getByTestId('human-chips')).toHaveText('970 チップ');
   });
 
-  test('チェックで進めるとカード交換フェーズになる', async ({ page }) => {
+  test('ベッティングを終えるとカード交換フェーズになる', async ({ page }) => {
     await startGame(page);
-    await page.getByRole('button', { name: 'チェック' }).click();
-    await waitForTurn(page);
 
-    await expect(page.getByRole('button', { name: /交換/ })).toBeVisible({ timeout: 15000 });
+    await advanceToDraw(page);
+
+    await expect(page.getByRole('button', { name: /交換/ })).toBeVisible();
   });
 
   test('カードを選んで交換すると選んだ枚数だけ入れ替わる', async ({ page }) => {

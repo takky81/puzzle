@@ -123,8 +123,11 @@ test.describe('ビンゴ', () => {
     await startGame(page);
 
     // 20回引けばカードの24マスのうち何マスかは必ずマークされる
+    // （20回に届く前に決着した場合は抽選ボタンが無効になるのでそこで止める）
+    const drawButton = page.getByRole('button', { name: '抽選する' });
     for (let i = 0; i < 20; i++) {
-      await page.getByRole('button', { name: '抽選する' }).click();
+      if (await drawButton.isDisabled()) break;
+      await drawButton.click();
     }
 
     const marked = page.getByTestId('player-card').first().locator('.cell.marked');
