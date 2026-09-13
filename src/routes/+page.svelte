@@ -33,6 +33,12 @@
       description: '番号のペアを線でつないで全マスを埋めるパズル',
     },
     {
+      name: 'ビンゴ',
+      path: '/bingo',
+      emoji: '🎱',
+      description: '最大4人でカードを埋めてビンゴを先取するゲーム',
+    },
+    {
       name: 'エアホッケー',
       path: '/air-hockey',
       emoji: '🏒',

@@ -42,6 +42,14 @@ src/
       logic.test.ts
       ai.ts             ← AI（軌道予測・守備行動）
       ai.test.ts
+    bingo/
+      types.ts          ← 型定義
+      card.ts           ← カード生成・マーク・ライン判定
+      card.test.ts
+      logic.ts          ← ゲーム状態管理（抽選・勝敗判定）
+      logic.test.ts
+      storage.ts        ← 設定の永続化（localStorage）
+      storage.test.ts
     common/
       （共通ユーティリティがあれば）
   routes/
@@ -63,12 +71,16 @@ src/
     air-hockey/
       +page.svelte      ← エアホッケーのUI（Canvas + requestAnimationFrame）
       SPEC.md
+    bingo/
+      +page.svelte      ← ビンゴのUI
+      SPEC.md
 e2e/
   navigation.test.ts    ← 共通E2Eテスト
   othello.test.ts       ← オセロE2Eテスト
   game2048.test.ts      ← 2048 E2Eテスト
   one-stroke.test.ts    ← 一筆書きE2Eテスト
   air-hockey.test.ts    ← エアホッケーE2Eテスト
+  bingo.test.ts         ← ビンゴE2Eテスト
 docs/
   TDD.md                ← 開発手法
   ARCHITECTURE.md       ← このファイル
