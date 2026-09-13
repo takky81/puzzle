@@ -39,6 +39,12 @@
       description: '最大4人でカードを埋めてビンゴを先取するゲーム',
     },
     {
+      name: 'ポーカー',
+      path: '/poker',
+      emoji: '🃏',
+      description: '5枚交換ポーカーでAIと1対1の勝負',
+    },
+    {
       name: 'エアホッケー',
       path: '/air-hockey',
       emoji: '🏒',

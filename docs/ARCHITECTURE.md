@@ -50,6 +50,18 @@ src/
       logic.test.ts
       storage.ts        ← 設定の永続化（localStorage）
       storage.test.ts
+    poker/
+      types.ts          ← 型定義
+      deck.ts           ← デッキ生成・シャッフル・ドロー
+      deck.test.ts
+      hand.ts           ← 役判定・手札比較
+      hand.test.ts
+      logic.ts          ← ハンド進行（ベット・交換・ショーダウン・チップ精算）
+      logic.test.ts
+      ai.ts             ← AI（弱い/通常/強い/最強＝チート）
+      ai.test.ts
+      storage.ts        ← 設定の永続化（localStorage）
+      storage.test.ts
     common/
       （共通ユーティリティがあれば）
   routes/
@@ -74,6 +86,9 @@ src/
     bingo/
       +page.svelte      ← ビンゴのUI
       SPEC.md
+    poker/
+      +page.svelte      ← ポーカーのUI
+      SPEC.md
 e2e/
   navigation.test.ts    ← 共通E2Eテスト
   othello.test.ts       ← オセロE2Eテスト
@@ -81,6 +96,7 @@ e2e/
   one-stroke.test.ts    ← 一筆書きE2Eテスト
   air-hockey.test.ts    ← エアホッケーE2Eテスト
   bingo.test.ts         ← ビンゴE2Eテスト
+  poker.test.ts         ← ポーカーE2Eテスト
 docs/
   TDD.md                ← 開発手法
   ARCHITECTURE.md       ← このファイル
